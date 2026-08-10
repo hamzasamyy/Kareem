@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%2322d3ee' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%2322d3ee'/%3E%3C/svg%3E">
+<!-- Fonts: Space Grotesk (UI), Inter (message text), JetBrains Mono (telemetry) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<!-- Ambient HUD backdrop: grid + scanlines + glow, all pure CSS -->
+<div class="backdrop" aria-hidden="true"></div>
+
+<!-- ============================== status bar ============================== -->
+<header class="statusbar">
+  <div class="statusbar-left">
+    <div class="ring" id="ring" aria-hidden="true">
+      <svg viewBox="0 0 40 40">
+        <circle class="ring-track" cx="20" cy="20" r="15"/>
+        <circle class="ring-arc"   cx="20" cy="20" r="15"/>
+        <circle class="ring-core"  cx="20" cy="20" r="4.5"/>
+      </svg>
+    </div>
+    <span class="wordmark">JARVIS</span>
+    <span class="statusline mono" id="statusline">standing by</span>
+  </div>
+  <div class="statusbar-right">
+    <span class="chip mono" id="brain-chip" title="Active brain (set in jarvis/config.py)">—</span>
+    <span class="chip mono" id="tts-chip" title="Active text-to-speech engine (set in jarvis/config.py)">VOICE —</span>
+    <span class="chip mono" id="safety-chip" title="Safety level (set in jarvis/config.py)">SAFETY —</span>
+    <span class="conn" id="conn" title="Connection to the Jarvis engine">
+      <span class="conn-dot"></span><span class="conn-label mono">LINK</span>
+    </span>
+    <button class="rail-toggle" id="history-toggle" title="Browse logged sessions">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a6 6 0 1 0 5.2 3M8 4v4l3 2M11 2h3v3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>History</span>
+    </button>
+    <button class="rail-toggle" id="tracker-toggle" title="Open personal trackers">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h10v10H3zM5.5 6l1.2 1.2L9 5M5.5 10h5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Trackers</span>
+    </button>
+    <button class="rail-toggle" id="memory-toggle" title="View remembered facts">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6.5A1.5 1.5 0 0 1 12 4v9.5H5.5A1.5 1.5 0 0 1 4 12V2.5zm0 9.5a1.5 1.5 0 0 1 1.5-1.5H12M7 5h2.5M7 7.5h2.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Memory</span>
+    </button>
+    <button class="rail-toggle" id="university-toggle" title="Open university dashboard">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 6 8 2.5 14.5 6 8 9.5 1.5 6Zm2.5 2v3.2c2.5 1.7 5.5 1.7 8 0V8M14.5 6v4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>University</span>
+    </button>
+    <button class="rail-toggle" id="new-session" title="Start a fresh conversation">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>New</span>
+    </button>
+    <button class="rail-toggle" id="rail-toggle" aria-expanded="true" aria-controls="rail"
+            title="Show or hide the activity feed">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h8M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Activity</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============================== main area =============================== -->
+<div class="layout">
+
+  <main class="chat-pane">
+    <section class="voice-hero" aria-label="Voice control">
+      <button type="button" class="orb-button" id="orb-button" title="Tap to talk">
+        <canvas id="orb-canvas" width="280" height="280" aria-hidden="true"></canvas>
+        <span class="visually-hidden">Talk to Jarvis</span>
+      </button>
+      <p class="orb-status mono" id="orb-status">Tap to talk</p>
+      <div class="voice-mode" role="group" aria-label="Voice interaction mode">
+        <button type="button" class="mode-btn" id="mode-voice" aria-pressed="true">Voice-first</button>
+        <button type="button" class="mode-btn" id="mode-text" aria-pressed="false">Text-first</button>
+      </div>
+    </section>
+    <div class="chat-scroll" id="chat-scroll">
+      <div class="chat-column" id="chat">
+        <!-- Empty state is hidden during a conversation and reused on reset. -->
+        <div class="empty" id="empty">
+          <div class="empty-ring" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <circle class="er-outer" cx="60" cy="60" r="52"/>
+              <circle class="er-mid"   cx="60" cy="60" r="38"/>
+              <circle class="er-core"  cx="60" cy="60" r="10"/>
+            </svg>
+          </div>
+          <h1>Systems online.</h1>
+          <p>Ask anything — open apps, search the web, manage files, run code.<br>
+             Risky actions will always ask you first.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ input bar ============================= -->
+    <div class="inputbar">
+      <div class="image-previews" id="image-previews" aria-label="Attached images"></div>
+      <form class="input-shell" id="form">
+        <input id="image-input" type="file" accept="image/*" multiple hidden>
+        <button type="button" class="attach" id="attach" title="Attach images">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8.5 12.5l6.8-6.8a3 3 0 0 1 4.2 4.2l-8.2 8.2a5 5 0 0 1-7.1-7.1l8-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <span class="visually-hidden">Attach images</span>
+        </button>
+        <input id="input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Ask Jarvis…" aria-label="Message Jarvis">
+        <button type="button" class="mic" id="mic" title="Talk to Jarvis (works best in Chrome/Edge)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3"/>
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <span class="visually-hidden">Voice input</span>
+        </button>
+        <button type="submit" class="send" id="send" title="Send (Enter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 12h13M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="visually-hidden">Send</span>
+        </button>
+      </form>
+      <p class="inputbar-note mono">local only · 127.0.0.1</p>
+    </div>
+  </main>
+
+  <!-- ============================ activity rail =========================== -->
+  <aside class="rail" id="rail" aria-label="Activity feed">
+    <div class="rail-head mono">ACTIVITY</div>
+    <ol class="rail-feed mono" id="rail-feed"></ol>
+  </aside>
+
+</div>
+
+<!-- Full-screen University route. The live chat stays mounted while hidden. -->
+<div class="guc-screen" id="guc-screen" hidden>
+  <header class="guc-screen-head">
+    <button class="history-back mono" id="guc-back" type="button">‹ BACK TO CHAT</button>
+    <h1 class="mono" id="guc-title">UNIVERSITY</h1>
+    <span></span>
+  </header>
+  <div class="guc-status-bar" id="guc-status-bar"></div>
+  <div class="guc-global-actions" id="guc-global-actions" aria-label="All University sections"></div>
+  <nav class="tracker-tabs guc-tabs" id="guc-tabs" aria-label="University section"></nav>
+  <main class="guc-content" id="guc-content"></main>
+</div>
+
+<!-- Session browser. It floats above the live conversation. -->
+<div class="history-overlay" id="history-overlay" hidden>
+  <section class="history-panel" role="dialog" aria-modal="true" aria-labelledby="history-title">
+    <header class="history-head">
+      <button class="history-back mono" id="history-back" type="button" hidden>‹ BACK</button>
+      <h2 class="mono" id="history-title">SESSION HISTORY</h2>
+      <button class="history-close" id="history-close" type="button" aria-label="Close history">×</button>
+    </header>
+    <div class="history-search">
+      <input id="history-search-input" type="search" placeholder="Search all sessions…" aria-label="Search session history">
+    </div>
+    <div class="history-content" id="history-content"></div>
+  </section>
+</div>
+
+<!-- Personal trackers. Visually mirrors History but remains REST-only. -->
+<div class="history-overlay" id="tracker-overlay" hidden>
+  <section class="history-panel tracker-panel" role="dialog" aria-modal="true" aria-labelledby="tracker-title">
+    <header class="history-head">
+      <span></span>
+      <h2 class="mono" id="tracker-title">TRACKERS</h2>
+      <button class="history-close" id="tracker-close" type="button" aria-label="Close trackers">×</button>
+    </header>
+    <nav class="tracker-tabs" id="tracker-tabs" aria-label="Tracker category"></nav>
+    <form class="tracker-form" id="tracker-form">
+      <input id="tracker-text" type="text" required placeholder="Add an item…" aria-label="Tracker item">
+      <input id="tracker-due" type="datetime-local" aria-label="Optional due time">
+      <input id="tracker-list-name" type="text" placeholder="List name" aria-label="Custom list name" hidden>
+      <button type="submit">Add</button>
+    </form>
+    <div class="history-content tracker-content" id="tracker-content"></div>
+  </section>
+</div>
+
+<!-- Remembered user facts. Visually mirrors the REST-only Trackers panel. -->
+<div class="history-overlay" id="memory-overlay" hidden>
+  <section class="history-panel memory-panel" role="dialog" aria-modal="true" aria-labelledby="memory-title">
+    <header class="history-head">
+      <span></span>
+      <h2 class="mono" id="memory-title">MEMORY</h2>
+      <button class="history-close" id="memory-close" type="button" aria-label="Close memory">×</button>
+    </header>
+    <form class="tracker-form" id="memory-form">
+      <input id="memory-text" type="text" required placeholder="Remember something…" aria-label="Fact to remember">
+      <button type="submit">Add</button>
+    </form>
+    <div class="history-content tracker-content" id="memory-content"></div>
+  </section>
+</div>
+
+<div class="toast mono" id="toast" role="status"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

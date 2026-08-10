@@ -1,0 +1,62 @@
+# Jarvis dependencies — versions verified on PyPI as current at time of writing.
+# Install with: pip install -r requirements.txt
+
+# --- Config / secrets ---
+python-dotenv==1.2.2
+
+# --- LLM brains ---
+ollama==0.6.2          # talks to your local Ollama server
+anthropic==0.117.0      # optional: only used if BRAIN = "claude" in config.py
+openai==2.45.0          # used by the hosted brain (any OpenAI-compatible endpoint)
+
+# --- Web research ---
+ddgs==9.14.4            # web search (formerly "duckduckgo-search")
+requests==2.34.2
+beautifulsoup4==4.15.0
+
+# --- Desktop control ---
+pyautogui==0.9.54
+pygetwindow==0.0.9
+pynput==1.8.2            # global hotkey listener (may need admin on some setups)
+pywinauto==0.6.9          # Windows UI Automation — click/type/read inside apps by control name (Layer 2)
+
+# --- General browser control (Layer 1) + GUC scraping ---
+playwright==1.61.0        # run 'playwright install chromium' once after installing
+mss==10.2.0               # screenshot capture for the vision fallback (Layer 3)
+
+# --- Voice: speech-to-text ---
+faster-whisper==1.2.1
+sounddevice==0.5.5
+numpy==2.5.1
+scipy==1.18.0
+webrtcvad-wheels==2.0.14  # prebuilt wheels for Windows (plain webrtcvad has no Windows wheel)
+
+# --- Voice: wake word ---
+openwakeword==0.6.0
+onnxruntime==1.27.0       # required by openwakeword
+
+# --- Voice: text-to-speech ---
+kokoro-onnx==0.5.0         # natural offline neural TTS (default)
+soundfile==0.14.0          # reads Kokoro's bundled voice data
+piper-tts==1.4.2          # offline neural TTS (automatic fallback)
+pyttsx3==2.99              # Windows SAPI voice (automatic fallback if Piper isn't set up)
+
+# --- Web interface (local browser UI at http://127.0.0.1:8000) ---
+fastapi==0.139.2
+uvicorn[standard]==0.51.0  # [standard] pulls in websockets for the live chat socket
+
+# --- System tray ---
+pystray==0.19.5
+Pillow==12.3.0
+
+# --- Tracker: desktop reminder notifications ---
+win11toast==0.36.3        # Windows toast notifications for due reminders
+dateparser==1.4.1         # natural-language due-date fallback parser
+
+# --- Google Calendar ---
+google-auth-oauthlib==1.2.2
+google-api-python-client==2.184.0
+tzlocal==5.3.1            # reliable local IANA timezone name, including on Windows
+
+# --- Misc ---
+psutil==7.2.2              # process/window helpers used by tools/apps.py and tools/system.py
