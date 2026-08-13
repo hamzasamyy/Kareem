@@ -1,5 +1,6 @@
 .env
 jarvis.log
+jarvis_background.log
 __pycache__/
 *.pyc
 .venv/

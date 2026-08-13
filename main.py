@@ -197,10 +197,69 @@ def run_check():
 
     print("=" * 40)
     if all_ok:
-        print("Everything looks good. Run 'python main.py' to start Jarvis.")
+        print("Everything looks good. Run 'run_jarvis' (or python main.py) to start Jarvis.")
     else:
-        print("Some checks failed — fix the items above, then run 'python main.py --check' again.")
+        print("Some checks failed — fix the items above, then run 'run_jarvis --check' again.")
     return all_ok
+
+
+def _require_project_interpreter():
+    """Fail fast, with the exact command to use, when Jarvis is launched under a
+    Python that doesn't have its dependencies installed — the recurring
+    'a bare python is 3.11, but the deps live in 3.12' trap on this machine.
+
+    Without this, a core import fails deeper into startup with a misleading
+    'pip install -r requirements.txt' message, which tempts a reinstall into
+    the SAME wrong interpreter instead of switching to the right one. The
+    run_jarvis.bat launcher prevents the mistake; this catches it if you (or an
+    IDE run-config) invoke a bare `python main.py` anyway.
+    """
+    import importlib.util
+    import os
+
+    from jarvis import config  # pure constants, no third-party imports — safe on any interpreter
+
+    brain_pkg = {"hosted": "openai", "ollama": "ollama", "claude": "anthropic"}.get(config.BRAIN, "openai")
+    if importlib.util.find_spec(brain_pkg) is not None:
+        return  # this interpreter has the configured brain's deps — good to go
+
+    here = Path(__file__).resolve().parent
+    launcher = here / "run_jarvis.bat"
+    py312 = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Python" / "Python312" / "python.exe"
+
+    out = [
+        "",
+        "=" * 70,
+        " Jarvis can't start: its dependencies aren't installed in THIS Python.",
+        "=" * 70,
+        f"  You launched : Python {sys.version.split()[0]}",
+        f"                 {sys.executable}",
+        f"  Missing here : '{brain_pkg}' (and almost certainly the rest of requirements.txt)",
+        "",
+    ]
+    if launcher.exists():
+        out += [
+            " FIX (recommended) — use the launcher; it always picks the right Python:",
+            f"     {launcher}",
+            "     ...or, from this folder, just type:   run_jarvis",
+            "",
+        ]
+    if py312.exists():
+        out += [
+            " Or run it explicitly with the Python 3.12 that has the deps:",
+            f'     "{py312}" "{here / "main.py"}"',
+            "",
+        ]
+    out += [
+        " Diagnose the full setup with:   run_jarvis --check",
+        "",
+        " (Only if the deps aren't installed ANYWHERE yet, install them into that",
+        '  3.12 first:   "<python-3.12>" -m pip install -r requirements.txt )',
+        "=" * 70,
+        "",
+    ]
+    print("\n".join(out))
+    sys.exit(1)
 
 
 def main():
@@ -208,6 +267,11 @@ def main():
     if "--check" in sys.argv:
         ok = run_check()
         sys.exit(0 if ok else 1)
+
+    # Fail fast, with the exact command to use, if Jarvis was launched under a
+    # Python that lacks its dependencies (the recurring wrong-interpreter trap).
+    # Runs AFTER --check so `run_jarvis --check` still gives the full diagnostic.
+    _require_project_interpreter()
 
     # Must happen before ANY subsystem starts — this is the actual fix for
     # duplicate wake-word/hotkey/GUC-scheduler threads piling up: a second
