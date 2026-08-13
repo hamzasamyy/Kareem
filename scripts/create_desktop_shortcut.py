@@ -1,19 +1,20 @@
 """Create Kareem launch shortcuts.
 
-Two different shortcuts, for two different ways of running Kareem:
-
   python scripts/create_desktop_shortcut.py
-      Desktop "Kareem" shortcut -> SIMPLE MODE. Double-click it and Kareem
-      opens in your browser; close that browser tab and Kareem quits. This is
-      the easy, one-sitting way to use Kareem. (Runs run_kareem_simple.bat.)
+      Desktop "Kareem" shortcut -> SILENT ALWAYS-ON listener (background, no
+      window — the way Kareem normally runs). Runs pythonw main.py --background.
+
+  python scripts/create_desktop_shortcut.py --simple
+      Desktop "Kareem (Simple Mode)" shortcut -> opens Kareem in your browser;
+      close that browser tab and Kareem quits. A separate, distinctly-named
+      icon from the always-on "Kareem" above. Runs run_kareem_simple.bat.
 
   python scripts/create_desktop_shortcut.py --autostart
-      Startup "Kareem" shortcut -> SILENT ALWAYS-ON listener that starts when
-      you sign in to Windows, with no window and no auto-quit. (Runs
-      pythonw main.py --background.)
+      Start the silent always-on listener automatically at Windows login
+      (Startup "Kareem" shortcut).
 
   python scripts/create_desktop_shortcut.py --remove-autostart
-      Remove the silent always-on Startup shortcut.
+      Remove the silent always-on listener from Windows Startup.
 """
 
 import argparse
@@ -66,16 +67,31 @@ def _create_shortcut(shortcut_path: Path, target: Path | str, arguments: str,
     return False
 
 
+def _create_silent_shortcut(shortcut_path: Path) -> bool:
+    """Silent always-on listener: pythonw (no console) + main.py --background."""
+    if not PYTHONW.exists():
+        print(f"Couldn't find pythonw.exe next to your Python install ({PYTHONW}). "
+              "Make sure Python was installed normally.")
+        return False
+    main_py = PROJECT_ROOT / "main.py"
+    return _create_shortcut(
+        shortcut_path, PYTHONW, f'"{main_py}" --background',
+        "Start Kareem (silent always-on listener, no console window)",
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Create Kareem launch shortcuts. With no flag, a Desktop "
-                    "'Kareem' shortcut for SIMPLE MODE (opens in the browser, "
-                    "closing the tab quits) is created."
+                    "'Kareem' shortcut for the SILENT always-on listener is created."
     )
     group = parser.add_mutually_exclusive_group()
+    group.add_argument("--simple", action="store_true",
+                       help="instead, create a separate Desktop 'Kareem (Simple "
+                            "Mode)' shortcut that opens in the browser and quits "
+                            "when you close the tab")
     group.add_argument("--autostart", action="store_true",
-                       help="instead, add the SILENT always-on listener to "
-                            "Windows Startup (runs at login, no window)")
+                       help="start the silent always-on listener at Windows login")
     group.add_argument("--remove-autostart", action="store_true",
                        help="remove the silent always-on listener from Startup")
     args = parser.parse_args()
@@ -96,36 +112,34 @@ def main():
         return
 
     if args.autostart:
-        # Silent always-on listener: pythonw (no console) + --background.
-        if not PYTHONW.exists():
-            print(f"Couldn't find pythonw.exe next to your Python install "
-                  f"({PYTHONW}). Make sure Python was installed normally.")
-            sys.exit(1)
-        main_py = PROJECT_ROOT / "main.py"
-        ok = _create_shortcut(
-            startup_shortcut, PYTHONW, f'"{main_py}" --background',
-            "Start Kareem's always-on listener (background, no window)",
-        )
-        if not ok:
+        if not _create_silent_shortcut(startup_shortcut):
             sys.exit(1)
         print("Kareem's silent listener will now start when you sign in to Windows.")
         return
 
-    # Default: SIMPLE-MODE Desktop shortcut (opens the browser; close the tab
-    # to quit). Points at run_kareem_simple.bat, which picks Python 3.12 the
-    # same way run_kareem.bat does.
-    if not SIMPLE_LAUNCHER.exists():
-        print(f"Couldn't find {SIMPLE_LAUNCHER}. Make sure run_kareem_simple.bat "
-              "is in the Kareem folder.")
-        sys.exit(1)
+    if args.simple:
+        # Simple-mode Desktop icon — a SEPARATE, distinctly-named shortcut, so
+        # the plain "Kareem" icon stays the silent always-on listener.
+        if not SIMPLE_LAUNCHER.exists():
+            print(f"Couldn't find {SIMPLE_LAUNCHER}. Make sure run_kareem_simple.bat "
+                  "is in the Kareem folder.")
+            sys.exit(1)
+        shortcut_path = _desktop_dir() / "Kareem (Simple Mode).lnk"
+        if not _create_shortcut(
+            shortcut_path, SIMPLE_LAUNCHER, "",
+            "Open Kareem in your browser — closing the tab quits Kareem",
+        ):
+            sys.exit(1)
+        print("Double-click 'Kareem (Simple Mode)' to open Kareem in your browser. "
+              "Close that browser tab to quit.")
+        return
+
+    # Default: the plain "Kareem" Desktop icon = silent always-on listener.
     shortcut_path = _desktop_dir() / "Kareem.lnk"
-    if not _create_shortcut(
-        shortcut_path, SIMPLE_LAUNCHER, "",
-        "Open Kareem in your browser — closing the tab quits Kareem",
-    ):
+    if not _create_silent_shortcut(shortcut_path):
         sys.exit(1)
-    print("Double-click 'Kareem' on your Desktop to open it in the browser. "
-          "Close that browser tab to quit.")
+    print("Double-click 'Kareem' on your Desktop to start the silent background "
+          "listener. (For the browser version, run this with --simple.)")
 
 
 if __name__ == "__main__":
