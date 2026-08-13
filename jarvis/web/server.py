@@ -130,9 +130,9 @@ def open_page():
     if page_is_open():
         try:
             import pygetwindow
-            for window in pygetwindow.getWindowsWithTitle("Jarvis"):
-                # browser tab titles start with the page title ("Jarvis - Chrome")
-                if window.title.startswith("Jarvis"):
+            for window in pygetwindow.getWindowsWithTitle("Kareem"):
+                # browser tab titles start with the page title ("Kareem - Chrome")
+                if window.title.startswith("Kareem"):
                     window.activate()
                     return
         except Exception:
@@ -193,7 +193,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             print(f"(web voice note: backend speech recognition is unavailable: {e}; "
                   "using browser speech recognition instead.)")
 
-    app = FastAPI(title="Jarvis", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Kareem", docs_url=None, redoc_url=None)
 
     # Reject cross-origin state-changing requests (a malicious page's hidden
     # form or fetch() POSTing to this API) — see _ALLOWED_ORIGINS above.
@@ -442,9 +442,9 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             """Replaces the console's y/n input for turns started from the
             browser. Runs on the worker thread INSIDE the safety gate: sends
             the question to the page, then blocks until the user clicks."""
-            # confirm() builds: "Jarvis wants to: {description}\nProceed? (y/n): "
+            # confirm() builds: "Kareem wants to: {description}\nProceed? (y/n): "
             # — recover the bare description for a clean card in the UI.
-            m = re.match(r"Jarvis wants to: (.*)\nProceed", prompt, re.DOTALL)
+            m = re.match(r"Kareem wants to: (.*)\nProceed", prompt, re.DOTALL)
             description = m.group(1) if m else prompt
 
             pending = {"event": threading.Event(), "approved": False}
@@ -492,7 +492,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             except Exception as e:
                 push({
                     "type": "error",
-                    "message": f"Jarvis hit a problem answering that: {user_safe_error(e)}",
+                    "message": f"Kareem hit a problem answering that: {user_safe_error(e)}",
                 })
             finally:
                 session["busy"] = False
@@ -506,7 +506,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             except Exception as e:
                 push({
                     "type": "error",
-                    "message": f"Jarvis couldn't start a new session: {user_safe_error(e)}",
+                    "message": f"Kareem couldn't start a new session: {user_safe_error(e)}",
                 })
             finally:
                 session["busy"] = False
@@ -538,7 +538,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
                           "message": "That session could not be found or resumed."})
             except Exception as e:
                 push({"type": "error",
-                      "message": f"Jarvis couldn't resume that session: {user_safe_error(e)}"})
+                      "message": f"Kareem couldn't resume that session: {user_safe_error(e)}"})
             finally:
                 session["busy"] = False
 
@@ -693,11 +693,11 @@ if __name__ == "__main__":
 
     from jarvis.agent import Agent
 
-    print("Starting Jarvis web server (standalone test mode)…")
+    print("Starting Kareem web server (standalone test mode)…")
     try:
         standalone_agent = Agent()
     except Exception as e:
-        print(f"\nJarvis couldn't start: {e}")
+        print(f"\nKareem couldn't start: {e}")
         print("Run 'python main.py --check' to diagnose the problem.")
         sys.exit(1)
 

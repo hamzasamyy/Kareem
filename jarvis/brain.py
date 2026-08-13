@@ -598,7 +598,7 @@ class HostedBrain:
                         # a few real characters with no tool call yet ⇒ this is
                         # the actual answer: start live output
                         if len(held.strip()) >= 8:
-                            print("Jarvis: ", end="", flush=True)
+                            print("Kareem: ", end="", flush=True)
                             print(held, end="", flush=True)
                             sentences.push(held)
                             emit(held)
@@ -663,7 +663,7 @@ class HostedBrain:
                 self.last_streamed = True
             elif leftover.strip():
                 # answer was shorter than the hold-back threshold
-                print(f"Jarvis: {leftover}\n", flush=True)
+                print(f"Kareem: {leftover}\n", flush=True)
                 sentences.push(leftover)
                 emit(leftover)
                 sentences.flush()

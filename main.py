@@ -38,7 +38,7 @@ if hasattr(sys.stdin, "reconfigure"):
 def run_check():
     """Verifies Ollama is reachable and required dependencies import cleanly.
     Prints a plain-English PASS/FAIL report — no stack traces."""
-    print("Jarvis setup check\n" + "=" * 40)
+    print("Kareem setup check\n" + "=" * 40)
     all_ok = True
 
     # --- Python version ---
@@ -46,7 +46,7 @@ def run_check():
     if py_ver >= (3, 11):
         print(f"[OK]   Python {py_ver.major}.{py_ver.minor}.{py_ver.micro}")
     else:
-        print(f"[FAIL] Python {py_ver.major}.{py_ver.minor} — Jarvis needs Python 3.11+.")
+        print(f"[FAIL] Python {py_ver.major}.{py_ver.minor} — Kareem needs Python 3.11+.")
         print("       Fix: install Python 3.11+ from https://python.org and re-run.")
         all_ok = False
 
@@ -197,7 +197,7 @@ def run_check():
 
     print("=" * 40)
     if all_ok:
-        print("Everything looks good. Run 'run_jarvis' (or python main.py) to start Jarvis.")
+        print("Everything looks good. Run 'run_jarvis' (or python main.py) to start Kareem.")
     else:
         print("Some checks failed — fix the items above, then run 'run_jarvis --check' again.")
     return all_ok
@@ -230,7 +230,7 @@ def _require_project_interpreter():
     out = [
         "",
         "=" * 70,
-        " Jarvis can't start: its dependencies aren't installed in THIS Python.",
+        " Kareem can't start: its dependencies aren't installed in THIS Python.",
         "=" * 70,
         f"  You launched : Python {sys.version.split()[0]}",
         f"                 {sys.executable}",
@@ -279,7 +279,7 @@ def main():
     # time even though the web server below would fail to bind.
     from jarvis import singleton
     if not singleton.acquire():
-        print("Jarvis is already running — see http://127.0.0.1:8000")
+        print("Kareem is already running — see http://127.0.0.1:8000")
         sys.exit(0)
 
     launch_cmd = [sys.executable] + sys.argv
@@ -304,18 +304,18 @@ def main():
             port_probe.bind((web_server_module.HOST, web_server_module.PORT))
         except OSError as e:
             port_probe.close()
-            print(f"Jarvis couldn't start: port {web_server_module.PORT} is "
+            print(f"Kareem couldn't start: port {web_server_module.PORT} is "
                   f"already in use ({e}).")
-            print("Another Jarvis process may still be running or shutting "
+            print("Another Kareem process may still be running or shutting "
                   "down — check Task Manager, or wait a moment and retry.")
             sys.exit(1)
         port_probe.close()
 
-    print("Jarvis is starting…")
+    print("Kareem is starting…")
     try:
         agent = Agent()
     except Exception as e:
-        print(f"\nJarvis couldn't start: {e}")
+        print(f"\nKareem couldn't start: {e}")
         print("\nRun 'python main.py --check' to diagnose the problem.")
         sys.exit(1)
 
@@ -395,7 +395,7 @@ def main():
         if not session_log.current_session_materialized():
             text = briefing_module.build_briefing()
             if text and not session_log.current_session_materialized():
-                print(f"Jarvis: {text}")
+                print(f"Kareem: {text}")
                 session_log.log_event("assistant_reply", text=text)
                 if voice and voice.speaker and voice.speaker.available:
                     voice.speak_reply(text)
@@ -408,9 +408,9 @@ def main():
             from jarvis.tray import start_tray_icon
             if not start_tray_icon(launch_cmd):
                 print("Tray icon unavailable (pystray/Pillow not usable) — "
-                      "Jarvis keeps running without one.")
+                      "Kareem keeps running without one.")
         except Exception as e:
-            print(f"Tray icon unavailable ({e}) — Jarvis keeps running without one.")
+            print(f"Tray icon unavailable ({e}) — Kareem keeps running without one.")
 
     if background:
         try:
@@ -490,7 +490,7 @@ def main():
                 with agent_lock:
                     reply = agent.send(user_text, on_sentence=on_sentence)
             except Exception as e:
-                print(f"Jarvis hit a problem answering that: {user_safe_error(e)}")
+                print(f"Kareem hit a problem answering that: {user_safe_error(e)}")
                 print("(if this keeps happening, run 'python main.py --check')\n")
                 continue
             finally:
@@ -498,7 +498,7 @@ def main():
                     voice.wakeword.resume()
 
             if not agent.last_streamed:
-                print(f"Jarvis: {reply}\n")
+                print(f"Kareem: {reply}\n")
 
             if spoken["count"]:
                 streamer.wait()          # let it finish talking

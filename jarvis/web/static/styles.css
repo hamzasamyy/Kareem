@@ -129,14 +129,7 @@ body {
 }
 .ring.listening .ring-arc { animation: ring-breathe 0.9s ease-in-out infinite; }
 
-/* --- chips + connection dot --- */
-.chip {
-  font-size: 11px; letter-spacing: 0.08em; color: var(--ink-dim);
-  padding: 4px 10px; border: 1px solid var(--panel-edge); border-radius: 999px;
-  background: var(--panel);
-  white-space: nowrap;
-}
-
+/* --- connection dot --- */
 .conn { display: flex; align-items: center; gap: 6px; }
 .conn-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -745,7 +738,6 @@ body {
           box-shadow: -20px 0 40px rgba(0,0,0,0.5); }
   .rail.collapsed { margin-right: 0; transform: translateX(100%); }
   .statusline { display: none; }
-  .chip { display: none; }
   .voice-hero { padding: 14px 12px 8px; }
   .orb-button { width: 132px; height: 132px; }
   .orb-status { margin-bottom: 7px; }

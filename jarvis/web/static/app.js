@@ -30,9 +30,6 @@ const modeVoice = document.getElementById("mode-voice");
 const modeText  = document.getElementById("mode-text");
 const ring      = document.getElementById("ring");
 const statusline= document.getElementById("statusline");
-const brainChip = document.getElementById("brain-chip");
-const ttsChip   = document.getElementById("tts-chip");
-const safetyChip= document.getElementById("safety-chip");
 const conn      = document.getElementById("conn");
 const rail      = document.getElementById("rail");
 const railToggle= document.getElementById("rail-toggle");
@@ -378,7 +375,7 @@ let sttSource = "browser";
     request and again when the server confirms it. */
 function showShuttingDown() {
   intentionalShutdown = true;
-  showToast("Jarvis is shutting down…");
+  showToast("Kareem is shutting down…");
   // A normal toast fades quickly; shutdown is terminal, so leave this one
   // visible alongside the status line after the socket disappears.
   clearTimeout(toastTimer);
@@ -429,11 +426,6 @@ function connect() {
 
     switch (msg.type) {
       case "hello": {
-        const brainNames = { hosted: "GROQ", ollama: "OLLAMA", claude: "CLAUDE" };
-        const label = brainNames[msg.brain] || msg.brain.toUpperCase();
-        brainChip.textContent = `${label} · ${msg.model}`;
-        ttsChip.textContent = msg.tts_engine ? `VOICE ${msg.tts_engine.toUpperCase()}` : "VOICE OFF";
-        safetyChip.textContent = `SAFETY ${msg.safety.toUpperCase()}`;
         sttSource = msg.stt_source === "backend" ? "backend" : "browser";
         logActivity(`engine online · ${msg.brain} · ${msg.model}`, "dim", "dot");
         if (msg.briefing && restoredEventCount === 0) {
@@ -754,7 +746,7 @@ async function showSession(session) {
       resume.textContent = "Resume this session";
       resume.addEventListener("click", () => {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          showToast("Jarvis is reconnecting — try again in a moment.");
+          showToast("Kareem is reconnecting — try again in a moment.");
           return;
         }
         resume.disabled = true;
@@ -834,7 +826,7 @@ newSessionBtn.addEventListener("click", () => {
     return;
   }
   if (!ws || ws.readyState !== WebSocket.OPEN) {
-    showToast("Jarvis is reconnecting — try again in a moment.");
+    showToast("Kareem is reconnecting — try again in a moment.");
     return;
   }
   ws.send(JSON.stringify({ type: "new_session" }));
@@ -1476,7 +1468,7 @@ function switchAppSection(section) {
       railToggle.setAttribute("aria-expanded", "true");
       break;
     default:
-      showToast(`Jarvis tried to open an unknown screen: ${section}`);
+      showToast(`Kareem tried to open an unknown screen: ${section}`);
   }
 }
 gucBack.addEventListener("click", closeGuc);
@@ -2263,7 +2255,7 @@ async function startBackendListening() {
     statusline.textContent = "transcribing";
     try {
       const buffer = await new Blob(chunks, { type: recorder.mimeType }).arrayBuffer();
-      if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error("Jarvis is reconnecting");
+      if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error("Kareem is reconnecting");
       ws.send(buffer);
     } catch (error) {
       backendTranscribing = false;

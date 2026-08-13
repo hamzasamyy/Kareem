@@ -187,7 +187,7 @@ def _find_locator(page, description: str, prefer: str = "any"):
 @register({
     "name": "browser_open",
     "description": (
-        "Open a website in Jarvis's browser — a URL, a domain, or a common "
+        "Open a website in Kareem's browser — a URL, a domain, or a common "
         "site name ('gmail', 'youtube', 'github'). Reuses the same browser "
         "tab across calls, so a later browser_click/browser_type/browser_read "
         "acts on whatever page this navigated to. Read-only/navigation, no "

@@ -54,7 +54,7 @@ APP_SECTIONS = {
 @register({
     "name": "navigate_app",
     "description": (
-        "Switch Jarvis's OWN web UI to a different screen (e.g. 'open the "
+        "Switch Kareem's OWN web UI to a different screen (e.g. 'open the "
         "university tab', 'go back to chat'). NOT for other websites/apps — "
         "use browser/app tools for those. No confirmation needed. Sections: "
         + "; ".join(f"'{k}' ({v})" for k, v in APP_SECTIONS.items())
@@ -65,7 +65,7 @@ APP_SECTIONS = {
             "section": {
                 "type": "string",
                 "enum": list(APP_SECTIONS.keys()),
-                "description": "Which screen of Jarvis's own web UI to switch to",
+                "description": "Which screen of Kareem's own web UI to switch to",
             },
         },
         "required": ["section"],

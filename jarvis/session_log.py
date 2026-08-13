@@ -248,7 +248,7 @@ def _materialize_session_locked():
         _session_dir.mkdir(parents=True, exist_ok=False)
         display = datetime.fromisoformat(_start_iso).strftime("%Y-%m-%d %H:%M:%S")
         header = (
-            f"# Jarvis session {_session_id}\n"
+            f"# Kareem session {_session_id}\n"
             f"Started: {display} — brain: {_brain} ({_model})\n\n---\n"
         )
         (_session_dir / "transcript.md").write_text(header, encoding="utf-8")
@@ -266,7 +266,7 @@ def _render_event(event_type, iso, fields):
     if event_type == "user_message":
         return f"\n**You** ({time}): {fields.get('text', '')}\n"
     if event_type == "assistant_reply":
-        return f"\n**Jarvis** ({time}): {fields.get('text', '')}\n"
+        return f"\n**Kareem** ({time}): {fields.get('text', '')}\n"
     if event_type == "tool_call":
         args = fields.get("args", {})
         parts = ", ".join(f"{key}={value!r}" for key, value in args.items())

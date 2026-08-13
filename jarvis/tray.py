@@ -67,12 +67,12 @@ def start_tray_icon(launch_cmd: list[str] | None = None) -> bool:
 
     try:
         menu = pystray.Menu(
-            pystray.MenuItem("Jarvis is running", None, enabled=False),
+            pystray.MenuItem("Kareem is running", None, enabled=False),
             pystray.MenuItem("Open Web UI", open_web),
-            pystray.MenuItem("Restart Jarvis", restart_jarvis),
+            pystray.MenuItem("Restart Kareem", restart_jarvis),
             pystray.MenuItem("Quit", quit_jarvis),
         )
-        icon = pystray.Icon("jarvis", make_image(), "Jarvis", menu)
+        icon = pystray.Icon("jarvis", make_image(), "Kareem", menu)
         threading.Thread(target=icon.run, daemon=True, name="jarvis-tray").start()
         return True
     except Exception:

@@ -42,7 +42,7 @@ def start_reminder_thread(speak_fn=None) -> None:
                             continue
                         if toast_fn is not None:
                             try:
-                                toast_fn(title="Jarvis reminder", body=text)
+                                toast_fn(title="Kareem reminder", body=text)
                             except Exception as error:
                                 if not toast_note_printed:
                                     print(f"Reminder desktop notifications unavailable ({error}); reminders will continue without toasts.")

@@ -197,7 +197,7 @@ STT_COMPUTE_TYPE = "int8"
 # to Whisper as an initial-prompt hint. Keep it SHORT (a dozen or so words
 # you actually say): a very long list makes the recognizer over-eager to
 # hear those words even when you didn't. Empty list = no biasing.
-STT_VOCABULARY = ["Jarvis"]
+STT_VOCABULARY = ["Kareem"]
 
 # Which engine transcribes your voice commands.
 # "local" = faster-whisper running on this PC (default) — your voice never

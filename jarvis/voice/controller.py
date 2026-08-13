@@ -105,7 +105,7 @@ class VoiceController:
                 self.wakeword = None
 
         if not listening:
-            print("No voice trigger could start — Jarvis is text-only this session.")
+            print("No voice trigger could start — Kareem is text-only this session.")
         return listening
 
     def stop(self):
@@ -166,7 +166,7 @@ class VoiceController:
             # conversation continues in the browser. Set WAKE_OPENS_WEB =
             # False in jarvis/config.py for the old talk-out-loud behavior.
             if getattr(config, "WAKE_OPENS_WEB", True) and self.open_web:
-                print("\n[opening the Jarvis web interface…]", flush=True)
+                print("\n[opening the Kareem web interface…]", flush=True)
                 try:
                     self.open_web()
                 except Exception as e:
@@ -206,7 +206,7 @@ class VoiceController:
                     safety.set_ask_fn(previous_ask)
 
             if not self.agent.last_streamed:
-                print(f"Jarvis: {reply}\n")
+                print(f"Kareem: {reply}\n")
 
             if spoken["count"]:
                 self.streamer.wait()  # sentences were spoken while generating

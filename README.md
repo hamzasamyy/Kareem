@@ -1,6 +1,6 @@
-# Jarvis — your personal desktop assistant
+# Kareem — your personal desktop assistant
 
-Jarvis is a voice + text assistant that runs on your own PC. By default it
+Kareem is a voice + text assistant that runs on your own PC. By default it
 thinks with a **free hosted cloud model** (fast — it runs on the provider's
 GPU, not your laptop). Two other brains are one config line away: a fully
 **offline local model** via Ollama (private, free, slower) and the **Claude

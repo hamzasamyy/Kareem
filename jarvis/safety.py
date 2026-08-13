@@ -97,7 +97,7 @@ def refuse_if_credential_like(source: str, field_description: str, value: str = 
         log_action(source, f"REFUSED — credential-like field: {field_description}")
         return (
             f"Refused: '{field_description}' looks like a password/card/bank "
-            "credential field. Jarvis never enters credentials into ad-hoc "
+            "credential field. Kareem never enters credentials into ad-hoc "
             "forms — please enter this yourself. (Existing .env-based logins "
             "for GUC etc. are a separate, explicit mechanism and are unaffected.)"
         )
@@ -140,17 +140,17 @@ _RISKY_CLICK_HINTS = (
 _HARD_BLOCK_CLICK_MESSAGES = {
     "hard_block_financial": (
         "Refused: '{description}' looks like a financial trade, purchase, "
-        "or money transfer. Jarvis never completes these — please do this "
+        "or money transfer. Kareem never completes these — please do this "
         "yourself."
     ),
     "hard_block_deletion": (
         "Refused: '{description}' looks like PERMANENT deletion — actual "
         "irreversible removal, not the University-style 'move to "
-        "Completed'. Jarvis never does this — please do this yourself."
+        "Completed'. Kareem never does this — please do this yourself."
     ),
     "hard_block_captcha": (
         "Refused: '{description}' looks like solving/bypassing a CAPTCHA "
-        "or bot-detection check. Jarvis never does this — please do this "
+        "or bot-detection check. Kareem never does this — please do this "
         "yourself."
     ),
 }
@@ -235,7 +235,7 @@ def confirm(action: str, description: str, ask_fn=None) -> bool:
 
     Returns True if the user confirmed, False otherwise. Every call is logged.
     """
-    prompt = f"Jarvis wants to: {description}\nProceed? (y/n): "
+    prompt = f"Kareem wants to: {description}\nProceed? (y/n): "
 
     from jarvis import session_log
     session_log.log_event("confirmation_asked", action=action, description=description)
