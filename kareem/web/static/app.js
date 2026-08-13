@@ -428,6 +428,11 @@ function connect() {
       case "hello": {
         sttSource = msg.stt_source === "backend" ? "backend" : "browser";
         logActivity(`engine online · ${msg.brain} · ${msg.model}`, "dim", "dot");
+        if (msg.close_tab_quits) {
+          // Simple mode: closing this tab shuts Kareem down. Say so quietly so
+          // it isn't a surprise, without nagging on every reconnect.
+          logActivity("simple mode · close this tab to quit Kareem", "dim", "dot");
+        }
         if (msg.briefing && restoredEventCount === 0) {
           addMessage("kareem", msg.briefing);
           if (voiceFirstMode) speakSentence(msg.briefing);

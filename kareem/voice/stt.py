@@ -57,6 +57,15 @@ def get_model():
         return _model
 
 
+def is_loaded() -> bool:
+    """True once the model has been warmed by a get_model() call. Lets the web
+    server use backend transcription only when the model is ALREADY loaded, so
+    it never triggers the heavy CTranslate2 load from a background thread —
+    doing that segfaults on Windows (access violation). main.py warms the model
+    on the main thread at startup; see its pre-warm block and create_app()."""
+    return _model is not None
+
+
 def _normalize_audio(audio_f32, target_peak: float = 0.95):
     """Boost quiet audio toward target_peak so a quiet/distant mic doesn't
     feed Whisper a low-amplitude signal it recognizes worse than a clear one.

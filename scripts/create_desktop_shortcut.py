@@ -1,9 +1,19 @@
-"""Create shortcuts that launch Kareem silently in the background.
+"""Create Kareem launch shortcuts.
 
-Usage:
+Two different shortcuts, for two different ways of running Kareem:
+
   python scripts/create_desktop_shortcut.py
+      Desktop "Kareem" shortcut -> SIMPLE MODE. Double-click it and Kareem
+      opens in your browser; close that browser tab and Kareem quits. This is
+      the easy, one-sitting way to use Kareem. (Runs run_kareem_simple.bat.)
+
   python scripts/create_desktop_shortcut.py --autostart
+      Startup "Kareem" shortcut -> SILENT ALWAYS-ON listener that starts when
+      you sign in to Windows, with no window and no auto-quit. (Runs
+      pythonw main.py --background.)
+
   python scripts/create_desktop_shortcut.py --remove-autostart
+      Remove the silent always-on Startup shortcut.
 """
 
 import argparse
@@ -15,6 +25,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PYTHONW = Path(sys.executable).with_name("pythonw.exe")
+SIMPLE_LAUNCHER = PROJECT_ROOT / "run_kareem_simple.bat"
 
 
 def _ps_string(value: Path | str) -> str:
@@ -29,16 +40,18 @@ def _desktop_dir() -> Path:
     return next((path for path in candidates if path.is_dir()), candidates[-1])
 
 
-def _create_shortcut(shortcut_path: Path) -> bool:
-    main_py = PROJECT_ROOT / "main.py"
+def _create_shortcut(shortcut_path: Path, target: Path | str, arguments: str,
+                     description: str) -> bool:
+    """Write a .lnk pointing at `target` with `arguments`, working dir =
+    PROJECT_ROOT. Returns True on success."""
     shortcut_path.parent.mkdir(parents=True, exist_ok=True)
     ps_script = "\n".join([
         "$WshShell = New-Object -ComObject WScript.Shell",
         f"$Shortcut = $WshShell.CreateShortcut({_ps_string(shortcut_path)})",
-        f"$Shortcut.TargetPath = {_ps_string(PYTHONW)}",
-        f"$Shortcut.Arguments = {_ps_string(f'\"{main_py}\" --background')}",
+        f"$Shortcut.TargetPath = {_ps_string(target)}",
+        f"$Shortcut.Arguments = {_ps_string(arguments)}",
         f"$Shortcut.WorkingDirectory = {_ps_string(PROJECT_ROOT)}",
-        '$Shortcut.Description = "Start Kareem (background, no console window)"',
+        f"$Shortcut.Description = {_ps_string(description)}",
         "$Shortcut.Save()",
     ])
     result = subprocess.run(
@@ -55,14 +68,16 @@ def _create_shortcut(shortcut_path: Path) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create Kareem background-launch shortcuts. With no flag, "
-                    "a Desktop shortcut is created."
+        description="Create Kareem launch shortcuts. With no flag, a Desktop "
+                    "'Kareem' shortcut for SIMPLE MODE (opens in the browser, "
+                    "closing the tab quits) is created."
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--autostart", action="store_true",
-                       help="start Kareem automatically at Windows login")
+                       help="instead, add the SILENT always-on listener to "
+                            "Windows Startup (runs at login, no window)")
     group.add_argument("--remove-autostart", action="store_true",
-                       help="remove Kareem from Windows Startup")
+                       help="remove the silent always-on listener from Startup")
     args = parser.parse_args()
 
     appdata = os.environ.get("APPDATA")
@@ -80,19 +95,37 @@ def main():
             print("Kareem autostart was already disabled.")
         return
 
-    if not PYTHONW.exists():
-        print(f"Couldn't find pythonw.exe next to your Python install ({PYTHONW}). "
-              "Make sure Python was installed normally.")
-        sys.exit(1)
-
-    shortcut_path = (startup_shortcut if args.autostart
-                     else _desktop_dir() / "Kareem.lnk")
-    if not _create_shortcut(shortcut_path):
-        sys.exit(1)
     if args.autostart:
-        print("Kareem will now start silently when you sign in to Windows.")
-    else:
-        print("Double-click it any time to start Kareem in the background.")
+        # Silent always-on listener: pythonw (no console) + --background.
+        if not PYTHONW.exists():
+            print(f"Couldn't find pythonw.exe next to your Python install "
+                  f"({PYTHONW}). Make sure Python was installed normally.")
+            sys.exit(1)
+        main_py = PROJECT_ROOT / "main.py"
+        ok = _create_shortcut(
+            startup_shortcut, PYTHONW, f'"{main_py}" --background',
+            "Start Kareem's always-on listener (background, no window)",
+        )
+        if not ok:
+            sys.exit(1)
+        print("Kareem's silent listener will now start when you sign in to Windows.")
+        return
+
+    # Default: SIMPLE-MODE Desktop shortcut (opens the browser; close the tab
+    # to quit). Points at run_kareem_simple.bat, which picks Python 3.12 the
+    # same way run_kareem.bat does.
+    if not SIMPLE_LAUNCHER.exists():
+        print(f"Couldn't find {SIMPLE_LAUNCHER}. Make sure run_kareem_simple.bat "
+              "is in the Kareem folder.")
+        sys.exit(1)
+    shortcut_path = _desktop_dir() / "Kareem.lnk"
+    if not _create_shortcut(
+        shortcut_path, SIMPLE_LAUNCHER, "",
+        "Open Kareem in your browser — closing the tab quits Kareem",
+    ):
+        sys.exit(1)
+    print("Double-click 'Kareem' on your Desktop to open it in the browser. "
+          "Close that browser tab to quit.")
 
 
 if __name__ == "__main__":

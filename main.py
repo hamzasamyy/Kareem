@@ -10,6 +10,7 @@ Run it with:
 import sys
 import threading
 import json
+import os
 import time
 from pathlib import Path
 
@@ -321,6 +322,26 @@ def main():
 
     agent_lock = threading.Lock()
 
+    # --- pre-warm backend speech-to-text ON THE MAIN THREAD ---
+    # The web server runs in a daemon thread (below). Loading the faster-whisper
+    # (CTranslate2) model off the main thread segfaults on Windows — an access
+    # violation that no try/except can catch, taking the whole process down a
+    # few seconds after startup. Loading it here, on the main thread, is safe;
+    # get_model() caches, so create_app() later reuses THIS instance instead of
+    # loading its own. If the load fails, the web UI falls back to browser
+    # speech recognition (see kareem/web/server.py create_app).
+    if (getattr(config, "WEB_STT_SOURCE", "browser") == "backend"
+            and web_server_module is not None):
+        try:
+            import shutil
+            if not shutil.which("ffmpeg"):
+                raise RuntimeError("ffmpeg was not found on PATH")
+            from kareem.voice import stt as _stt_prewarm
+            _stt_prewarm.get_model()
+        except Exception as e:
+            print(f"(backend speech recognition unavailable: {e}; the web UI will "
+                  "use browser speech recognition instead.)")
+
     # --- web interface (optional, degrades gracefully) ---
     # Runs in a daemon background thread wrapping the SAME agent, so the
     # browser, console, and voice all share one conversation.
@@ -335,6 +356,25 @@ def main():
             ).start()
             web_server = web_server_module
             print(f"Web interface: {web_server_module.URL}")
+            # Simple mode (run_kareem_simple.bat sets KAREEM_SIMPLE_MODE=1):
+            # open the browser once the server answers, so the user lands in
+            # the web UI without typing a URL. Always-on modes don't set the
+            # env var, so they never auto-open anything.
+            if os.environ.get("KAREEM_SIMPLE_MODE") == "1":
+                def _open_web_when_ready():
+                    import urllib.request
+                    for _ in range(60):  # poll up to ~30s for the server
+                        try:
+                            urllib.request.urlopen(web_server_module.URL, timeout=1)
+                            break
+                        except Exception:
+                            time.sleep(0.5)
+                    try:
+                        web_server_module.open_page()
+                    except Exception:
+                        pass
+                threading.Thread(target=_open_web_when_ready, daemon=True,
+                                 name="kareem-open-web").start()
         except Exception as e:
             print(f"Web interface unavailable ({e}). Console chat still works.")
             print("Fix: pip install -r requirements.txt")

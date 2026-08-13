@@ -19,7 +19,7 @@ WebSocket protocol (JSON messages):
     {"type": "confirm_response", "approved": bool}   Confirm/Cancel click
     {"type": "shutdown_request"}                       deliberately stop Kareem
   server -> browser:
-    {"type": "hello", "brain": "...", "model": "...", "safety": "...", "stt_source": "...", "briefing": "..." (optional)}
+    {"type": "hello", "brain": "...", "model": "...", "safety": "...", "stt_source": "...", "briefing": "..." (optional), "close_tab_quits": bool}
     {"type": "stt_result", "text": "...", "error": "..." (optional)}
     {"type": "token",      "text": "..."}            next chunk of the streaming reply
     {"type": "reply_done", "text": "..."}            full final reply (always sent)
@@ -55,6 +55,7 @@ in kareem/safety.py is untouched by this.
 import asyncio
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -96,6 +97,55 @@ def _origin_is_allowed(origin) -> bool:
 # endpoint). Lets the wake word focus an already-open tab instead of piling
 # up new ones.
 _page_clients = 0
+
+# Simple mode: set ONLY by run_kareem_simple.bat (KAREEM_SIMPLE_MODE=1). In this
+# mode, closing the last browser tab quits Kareem — the whole point of that
+# launcher. The always-on modes (run_kareem.bat, run_kareem_silent.vbs) never
+# set the env var, so every close-tab-to-quit line below stays completely
+# dormant for them: closing a tab there just closes the tab.
+SIMPLE_MODE = os.environ.get("KAREEM_SIMPLE_MODE") == "1"
+# After the last tab disconnects, wait this long before quitting. A page
+# refresh disconnects then reconnects within a fraction of a second and cancels
+# the pending quit, so a refresh is NOT mistaken for a close.
+CLOSE_TAB_GRACE_SECONDS = 4.0
+_shutdown_timer = None
+_shutdown_timer_lock = threading.Lock()
+
+
+def _cancel_pending_close_shutdown():
+    """A tab (re)connected — abort any pending close-tab-to-quit shutdown.
+    This is what makes a refresh safe: the new connection lands inside the
+    grace window and calls this before the timer fires."""
+    global _shutdown_timer
+    with _shutdown_timer_lock:
+        if _shutdown_timer is not None:
+            _shutdown_timer.cancel()
+            _shutdown_timer = None
+
+
+def _arm_close_tab_shutdown():
+    """The last browser tab in simple mode just disconnected. Start the grace
+    timer; if nobody reconnects before it fires, quit Kareem gracefully."""
+    global _shutdown_timer
+
+    def _do_shutdown():
+        # Re-check under nobody-reconnected: a refresh may have landed after the
+        # timer started but before it fired.
+        if _page_clients > 0:
+            return
+        try:
+            from kareem import session_log
+            session_log.close_session()
+        except Exception:
+            pass
+        os._exit(0)
+
+    with _shutdown_timer_lock:
+        if _shutdown_timer is not None:
+            _shutdown_timer.cancel()
+        _shutdown_timer = threading.Timer(CLOSE_TAB_GRACE_SECONDS, _do_shutdown)
+        _shutdown_timer.daemon = True
+        _shutdown_timer.start()
 
 
 def _transcribe_backend(audio_bytes: bytes) -> str:
@@ -183,15 +233,28 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
 
     effective_stt_source = "browser"
     if getattr(config, "WEB_STT_SOURCE", "browser") == "backend":
-        try:
-            if not shutil.which("ffmpeg"):
-                raise RuntimeError("ffmpeg was not found on PATH")
-            from kareem.voice import stt as voice_stt
-            voice_stt.get_model()
+        from kareem.voice import stt as voice_stt
+        if voice_stt.is_loaded():
+            # Already warmed by main.py on the main thread — safe to use.
             effective_stt_source = "backend"
-        except Exception as e:
-            print(f"(web voice note: backend speech recognition is unavailable: {e}; "
-                  "using browser speech recognition instead.)")
+        elif threading.current_thread() is threading.main_thread():
+            # Standalone server (python -m kareem.web.server) builds the app on
+            # the main thread, where loading the CTranslate2 model is safe.
+            try:
+                if not shutil.which("ffmpeg"):
+                    raise RuntimeError("ffmpeg was not found on PATH")
+                voice_stt.get_model()
+                effective_stt_source = "backend"
+            except Exception as e:
+                print(f"(web voice note: backend speech recognition is unavailable: {e}; "
+                      "using browser speech recognition instead.)")
+        else:
+            # Full app: the web server is on a daemon thread and main.py's
+            # pre-warm didn't load the model (missing ffmpeg or a load failure).
+            # Loading the CTranslate2 model here would segfault the process, so
+            # fall back to browser speech recognition instead of crashing.
+            print("(web voice note: backend speech model isn't loaded; using "
+                  "browser speech recognition instead.)")
 
     app = FastAPI(title="Kareem", docs_url=None, redoc_url=None)
 
@@ -417,6 +480,10 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             return
         await ws.accept()
         _page_clients += 1
+        if SIMPLE_MODE:
+            # A tab connected (fresh open OR a refresh landing within the grace
+            # window) — cancel any pending close-tab-to-quit shutdown.
+            _cancel_pending_close_shutdown()
         loop = asyncio.get_running_loop()
 
         # Everything the engine wants to tell the browser goes through this
@@ -565,6 +632,9 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             "stt_source": effective_stt_source,
             "tts_engine": get_active_tts_engine(),
             "briefing": briefing_text,
+            # True only under run_kareem_simple.bat: closing this tab quits
+            # Kareem, so the page shows a small hint saying so.
+            "close_tab_quits": SIMPLE_MODE,
         })
 
         try:
@@ -664,6 +734,11 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             pass  # browser tab closed/refreshed
         finally:
             _page_clients -= 1
+            if SIMPLE_MODE and _page_clients <= 0:
+                # Last tab just closed (or refreshed). Start the grace timer —
+                # a refresh reconnects and cancels it; a real close lets it
+                # fire and quits Kareem. Dormant unless simple mode is on.
+                _arm_close_tab_shutdown()
             # Never leave the engine blocked on a question nobody can answer:
             # a vanished browser counts as "declined".
             pending = session["pending"]
