@@ -1,7 +1,9 @@
 """
-Text-to-speech. By default this tries Kokoro first, then automatically falls
-back to Piper and finally pyttsx3 (the built-in Windows SAPI voice). Whatever
-is installed, speak() either works or tells you plainly why it can't.
+Text-to-speech. Uses the engine named by TTS_ENGINE in jarvis/config.py
+(default "piper"); if that engine can't start, it automatically falls back
+down the chain kokoro -> piper -> pyttsx3 (the built-in Windows SAPI voice)
+from that point on. Whatever is installed, speak() either works or tells you
+plainly why it can't.
 
 Kokoro's model and voices files belong in jarvis/voice/models/kokoro/. Piper
 voice files belong directly in jarvis/voice/models/ so its model search can

@@ -166,12 +166,12 @@ def run_check():
         import os
         from dotenv import load_dotenv
         load_dotenv()
-        if os.getenv("HOSTED_API_KEY"):
-            print(f"[OK]   HOSTED_API_KEY found in .env (model: {config.HOSTED_MODEL})")
+        key_env = getattr(config, "HOSTED_API_KEY_ENV", "HOSTED_API_KEY")
+        if os.getenv(key_env):
+            print(f"[OK]   {key_env} found in .env (model: {config.HOSTED_MODEL})")
         else:
-            print("[FAIL] No HOSTED_API_KEY in .env.")
-            print("       Fix: copy .env.example to .env and paste in a free key")
-            print("       from https://console.groq.com")
+            print(f"[FAIL] No {key_env} in .env (needed for HOSTED_MODEL {config.HOSTED_MODEL}).")
+            print(f"       Fix: add {key_env}=your-key to .env.")
             all_ok = False
 
     # --- Ollama server reachability (only matters if BRAIN = "ollama") ---
@@ -222,6 +222,7 @@ def main():
 
     from jarvis import config
     from jarvis.agent import Agent
+    from jarvis.errors import user_safe_error
 
     # Optional web server module — imported here (before Agent, which is
     # slow) so we can fail fast on a port conflict. Missing fastapi/uvicorn
@@ -425,7 +426,7 @@ def main():
                 with agent_lock:
                     reply = agent.send(user_text, on_sentence=on_sentence)
             except Exception as e:
-                print(f"Jarvis hit a problem answering that: {e}")
+                print(f"Jarvis hit a problem answering that: {user_safe_error(e)}")
                 print("(if this keeps happening, run 'python main.py --check')\n")
                 continue
             finally:

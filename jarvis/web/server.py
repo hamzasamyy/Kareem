@@ -179,6 +179,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
     and the desktop app talk to the SAME conversation and never overlap turns.
     """
     from jarvis import briefing, config, memory, safety, session_log, trackers
+    from jarvis.errors import user_safe_error
 
     effective_stt_source = "browser"
     if getattr(config, "WEB_STT_SOURCE", "browser") == "backend":
@@ -491,7 +492,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             except Exception as e:
                 push({
                     "type": "error",
-                    "message": f"Jarvis hit a problem answering that: {e}",
+                    "message": f"Jarvis hit a problem answering that: {user_safe_error(e)}",
                 })
             finally:
                 session["busy"] = False
@@ -505,7 +506,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             except Exception as e:
                 push({
                     "type": "error",
-                    "message": f"Jarvis couldn't start a new session: {e}",
+                    "message": f"Jarvis couldn't start a new session: {user_safe_error(e)}",
                 })
             finally:
                 session["busy"] = False
@@ -516,7 +517,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
                 text = _transcribe_backend(audio_bytes)
             except Exception as e:
                 push({"type": "stt_result", "text": "",
-                      "error": f"Speech recognition failed: {e}. "
+                      "error": f"Speech recognition failed: {user_safe_error(e)}. "
                                "Using browser speech recognition instead.",
                       "stt_source": "browser"})
                 session["busy"] = False
@@ -537,7 +538,7 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
                           "message": "That session could not be found or resumed."})
             except Exception as e:
                 push({"type": "error",
-                      "message": f"Jarvis couldn't resume that session: {e}"})
+                      "message": f"Jarvis couldn't resume that session: {user_safe_error(e)}"})
             finally:
                 session["busy"] = False
 

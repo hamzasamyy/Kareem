@@ -1,54 +1,15 @@
-# ============================================================
-# Jarvis .gitignore
-# SECURITY: never commit real credentials. Use .env.example as the template.
-# ============================================================
-
-# ── Secrets / credentials (NEVER commit) ──
 .env
-.env.*
-!.env.example
-credentials.json
-token.json
-*.pem
-*.key
-*.pfx
-*.p12
-
-# ── Personal runtime data / state ──
-data/
-sessions/
-*.log
 jarvis.log
-
-# ── Large binaries: voice / ML models ──
-jarvis/voice/models/
-*.onnx
-*.onnx.json
-*.pt
-*.pth
-*.bin
-*.gguf
-*.ckpt
-
-# ── Generated output / caches ──
-graphify-out/
-**/graphify-out/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# ── Python ──
 __pycache__/
-*.py[cod]
-*.egg-info/
+*.pyc
 .venv/
 venv/
-env/
-ENV/
+sessions/
+data/
+credentials.json
+token.json
 
-# ── OS / editor / OneDrive cruft ──
-.DS_Store
-Thumbs.db
-desktop.ini
-.idea/
-.vscode/
+# Large TTS voice-model binaries — downloaded per machine (see README), kept out of the code-only backup
+jarvis/voice/models/
+# graphify knowledge-graph output/cache — generated, not source
+graphify-out/

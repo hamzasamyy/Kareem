@@ -208,6 +208,19 @@ def set_ask_fn(fn):
     return previous
 
 
+# Accepted "yes" answers for a typed/console (or web-button) confirmation.
+# The voice path (jarvis/voice/controller.py::_voice_confirm) already
+# normalizes a spoken reply down to a bare "yes"/"no" before confirm() sees
+# it, so this set only needs to cover what a person actually TYPES — broadened
+# past "y"/"yes" so a typed "yeah"/"ok"/"sure" isn't silently treated as a
+# decline (bug F7). Matched by exact token after strip()+lower(), never as a
+# substring, so "no"/"nope"/"cancel" always remain declines.
+_AFFIRMATIVE_RESPONSES = {
+    "y", "yes", "yeah", "yep", "yup", "yea", "sure", "ok", "okay",
+    "confirm", "go ahead", "do it",
+}
+
+
 def confirm(action: str, description: str, ask_fn=None) -> bool:
     """
     Ask the user to confirm a risky action before it happens.
@@ -234,7 +247,7 @@ def confirm(action: str, description: str, ask_fn=None) -> bool:
         print(f"\n[CONFIRM] {description}")
         response = input("Proceed? (y/n): ")
 
-    confirmed = str(response).strip().lower() in ("y", "yes")
+    confirmed = str(response).strip().lower() in _AFFIRMATIVE_RESPONSES
     session_log.log_event(
         "confirmation_answered", action=action, description=description,
         approved=confirmed, source=source,

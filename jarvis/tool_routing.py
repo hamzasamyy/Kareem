@@ -137,3 +137,20 @@ def filter_tool_specs(tool_specs: list[dict], text: str) -> list[dict]:
         spec for spec in tool_specs
         if spec["name"] not in known_names or spec["name"] in relevant_names
     ]
+
+
+def select_tools_for_message(tool_specs: list[dict], text: str, brain: str) -> list[dict]:
+    """Which tool schemas to send for one message, given the active brain.
+
+    The capable hosted/Claude brains always get the FULL set: trimming them was
+    the source of the web-search and calendar under-inclusion failures (a real
+    request whose phrasing missed the keyword filter got its tool silently
+    denied, and the provider then rejected the model's call), while the token
+    saving on a fast provider is negligible. Only the small local Ollama model
+    — which measurably degrades when handed many tools (see
+    jarvis.agent.SYSTEM_PROMPT_SMALL) — gets the keyword-filtered subset from
+    filter_tool_specs().
+    """
+    if brain == "ollama":
+        return filter_tool_specs(tool_specs, text)
+    return list(tool_specs)

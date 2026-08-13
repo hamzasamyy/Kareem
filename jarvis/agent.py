@@ -371,12 +371,17 @@ class Agent:
         else:
             content = user_text
         self.history.append({"role": "user", "content": content})
-        from jarvis import session_log
+        from jarvis import config, session_log
         session_log.log_event("user_message", text=user_text)
-        # Only send the tool schemas plausibly relevant to this message —
-        # sending all of them on every turn (even "hello") was adding real
-        # latency to every request. See jarvis/tool_routing.py.
-        relevant_tools = tool_routing.filter_tool_specs(tools.TOOL_SPECS, user_text)
+        # Which tool schemas to send this turn. The capable hosted/Claude brains
+        # get the FULL set — trimming them was the source of the web-search and
+        # calendar under-inclusion failures (a phrasing that missed the keyword
+        # filter got its tool silently denied). Only the small local Ollama
+        # model, which degrades with many tools, gets the filtered subset.
+        # See jarvis/tool_routing.py.
+        relevant_tools = tool_routing.select_tools_for_message(
+            tools.TOOL_SPECS, user_text, config.BRAIN
+        )
         try:
             reply = self.brain.chat(
                 self.history,

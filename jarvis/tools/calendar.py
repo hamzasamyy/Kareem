@@ -3,6 +3,7 @@
 from datetime import datetime, time, timedelta
 
 from jarvis import trackers
+from jarvis.errors import user_safe_error
 from jarvis.safety import guard
 from jarvis.tools import register
 from jarvis.tools.calendar_auth import get_calendar_service
@@ -15,10 +16,9 @@ _DUE_HELP = (
 
 
 def _error(exc):
-    text = str(exc).strip() or exc.__class__.__name__
     if isinstance(exc, RuntimeError):
-        return f"Google Calendar isn't connected: {text}"
-    return f"Google rejected that request: {text}"
+        return f"Google Calendar isn't connected: {user_safe_error(exc)}"
+    return f"Google rejected that request: {user_safe_error(exc)}"
 
 
 def _parse_datetime(value):

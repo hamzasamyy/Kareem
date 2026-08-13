@@ -126,12 +126,17 @@ def _looks_like_noise(line: str) -> bool:
     lowered = line.lower()
     if any(marker in lowered for marker in NOISE_MARKERS):
         return True
-    # old-archive years (course archives commonly list years well before
-    # the current one, e.g. "midterm spring 2011", "final 2014")
-    for year_match in re.finditer(r"\b(19|20)\d{2}\b", lowered):
-        year = int(year_match.group(0))
-        if year < datetime.now().year:
-            return True
+    # Old-archive listings (course archives commonly list years well before
+    # the current one, e.g. "midterm spring 2011", "final 2014"). But a line
+    # can ALSO mention a past year only in passing while stating a real
+    # current/future deadline ("…covering 2019 material, due 5 January 2026") —
+    # calling that archive-noise silently DROPPED a genuine deadline (bug F3).
+    # So treat the year signal as noise only when EVERY explicit year in the
+    # line is in the past; a line carrying any current/future year is kept for
+    # normal date parsing and scoring downstream.
+    years = [int(match.group(0)) for match in re.finditer(r"\b(?:19|20)\d{2}\b", lowered)]
+    if years and all(year < datetime.now().year for year in years):
+        return True
     return False
 
 

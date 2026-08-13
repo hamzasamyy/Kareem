@@ -1,10 +1,11 @@
 """
-Brain abstraction — swaps between a local Ollama model and the Claude API
-without the rest of Jarvis needing to know which one is active.
+Brain abstraction — swaps between a free hosted cloud model (the default),
+a local Ollama model, and the Claude API without the rest of Jarvis needing
+to know which one is active.
 
 Which brain is used is controlled entirely by jarvis/config.py (BRAIN =
-"ollama" or "claude"). Both classes expose the same chat() method so
-agent.py never has to branch on which provider is running.
+"hosted", "ollama", or "claude"). All three classes expose the same chat()
+method so agent.py never has to branch on which provider is running.
 
 Tool calling: chat() accepts a list of tool specs (provider-neutral format,
 see jarvis/tools/__init__.py) and an execute_tool(calls) callback, where
@@ -17,6 +18,7 @@ the final text reply.
 """
 
 from jarvis import config
+from jarvis.errors import user_safe_error
 
 # Safety valve: the model can chain at most this many rounds of tool calls
 # for a single user message, so a confused model can't loop forever.
@@ -334,13 +336,19 @@ class HostedBrain:
         from dotenv import load_dotenv
 
         load_dotenv()
-        api_key = os.getenv("HOSTED_API_KEY")
+        # Which .env variable holds this provider's key is chosen in
+        # jarvis/config.py (HOSTED_API_KEY_ENV), so switching providers —
+        # Groq's HOSTED_API_KEY vs Nous Portal's NOUS_API_KEY — is a one-line
+        # config change. Defaults to HOSTED_API_KEY when unset.
+        key_env = getattr(config, "HOSTED_API_KEY_ENV", "HOSTED_API_KEY")
+        api_key = os.getenv(key_env)
         if not api_key:
             raise RuntimeError(
-                "No HOSTED_API_KEY found.\n"
-                "Fix: copy .env.example to .env (in the Jarvis folder) and paste in a\n"
-                "free API key — e.g. from https://console.groq.com — like this:\n"
-                "    HOSTED_API_KEY=your-key-here"
+                f"No {key_env} found in .env.\n"
+                f"Fix: add a line to .env (in the Jarvis folder):\n"
+                f"    {key_env}=your-key-here\n"
+                "Groq keys: https://console.groq.com  |  "
+                "Nous Portal keys: https://portal.nousresearch.com (API Keys)."
             )
 
         self.last_streamed = False  # True after a reply that was live-printed/spoken
@@ -412,13 +420,14 @@ class HostedBrain:
                         "model (see the comment there) and try again."
                     ) from e
                 raise RuntimeError(
-                    f"The hosted model didn't answer ({e}).\n"
+                    f"The hosted model didn't answer ({user_safe_error(e)}).\n"
                     "This usually means no internet, or a wrong key/model in "
                     ".env / jarvis/config.py."
                 )
 
         raise RuntimeError(
-            f"The free hosted model is rate-limited right now ({last_error}).\n"
+            f"The free hosted model is rate-limited right now "
+            f"({user_safe_error(last_error)}).\n"
             "Wait a minute and try again, or switch HOSTED_MODEL in jarvis/config.py "
             "to another free model (see the comments there)."
         )

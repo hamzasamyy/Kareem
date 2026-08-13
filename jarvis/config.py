@@ -57,10 +57,27 @@ BRAIN = "hosted"
 #
 # (NVIDIA NIM also works the same way: https://integrate.api.nvidia.com/v1
 #  with a key from build.nvidia.com and a model id from their catalog.)
-HOSTED_BASE_URL = "https://api.groq.com/openai/v1"
-# Vision on Groq: meta-llama/llama-4-scout-17b-16e-instruct. The default
-# openai/gpt-oss-120b is text-only.
-HOSTED_MODEL = "openai/gpt-oss-120b"
+# ────────────────────────────────────────────────────────────────────────
+# ACTIVE HOSTED PROVIDER — flip this ONE line to switch or revert.
+#   "nous" = the real Hermes 4 70B via Nous Portal (paid after ~$5 free
+#            credits; key in .env as NOUS_API_KEY). NOTE: this endpoint's
+#            model metadata reports tools:false — Jarvis's tool-calling on it
+#            is under test; if tools don't work, set this back to "groq".
+#   "groq" = free, fast Groq openai/gpt-oss-120b with reliable tool calls
+#            (the long-standing default; key in .env as HOSTED_API_KEY).
+# ────────────────────────────────────────────────────────────────────────
+HOSTED_PROVIDER = "groq"
+
+if HOSTED_PROVIDER == "nous":
+    HOSTED_BASE_URL = "https://inference-api.nousresearch.com/v1"
+    HOSTED_MODEL = "nousresearch/hermes-4-70b"   # exact id from the live /v1/models list
+    HOSTED_API_KEY_ENV = "NOUS_API_KEY"
+else:  # "groq" — kept fully intact so reverting is the one-line change above
+    HOSTED_BASE_URL = "https://api.groq.com/openai/v1"
+    # Vision on Groq: meta-llama/llama-4-scout-17b-16e-instruct.
+    # The default openai/gpt-oss-120b is text-only.
+    HOSTED_MODEL = "openai/gpt-oss-120b"
+    HOSTED_API_KEY_ENV = "HOSTED_API_KEY"
 
 # If the hosted endpoint is unreachable or rate-limited, automatically answer
 # with the local Ollama model instead (when it's running). Jarvis prints a
