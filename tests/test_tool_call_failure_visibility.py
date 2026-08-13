@@ -2,9 +2,9 @@ import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
-from jarvis import config
-from jarvis.agent import Agent
-from jarvis.brain import HostedBrain, MAX_TOOL_ROUNDS, OllamaBrain
+from kareem import config
+from kareem.agent import Agent
+from kareem.brain import HostedBrain, MAX_TOOL_ROUNDS, OllamaBrain
 
 
 class _FakeOllamaMessage:
@@ -117,7 +117,7 @@ class FallbackToOllamaNotificationTests(unittest.TestCase):
     def _make_hosted_brain(self):
         return HostedBrain.__new__(HostedBrain)
 
-    @patch("jarvis.brain.OllamaBrain")
+    @patch("kareem.brain.OllamaBrain")
     def test_fallback_invoked_notifies_before_attempting(self, mock_ollama_cls):
         mock_instance = MagicMock()
         mock_instance.chat.return_value = "answered locally"
@@ -135,7 +135,7 @@ class FallbackToOllamaNotificationTests(unittest.TestCase):
         self.assertIn("hosted brain unavailable", failures[0][1])
         self.assertIn("hosted rate-limited", failures[0][1])
 
-    @patch("jarvis.brain.OllamaBrain")
+    @patch("kareem.brain.OllamaBrain")
     def test_no_local_brain_available_does_not_notify(self, mock_ollama_cls):
         # No local Ollama at all: the ORIGINAL hosted-side error is what the
         # caller reports (via its own on_tool_failure call after re-raising),
@@ -151,7 +151,7 @@ class FallbackToOllamaNotificationTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertEqual(failures, [])
 
-    @patch("jarvis.brain.OllamaBrain")
+    @patch("kareem.brain.OllamaBrain")
     def test_fallback_chat_failure_notifies_twice(self, mock_ollama_cls):
         mock_instance = MagicMock()
         mock_instance.chat.side_effect = RuntimeError("local also broken")
@@ -176,7 +176,7 @@ class HostedBrainEndToEndReproTests(unittest.TestCase):
     validation error, falling back to a local model that ALSO can't produce
     anything — with, before this fix, zero trace anywhere but stdout."""
 
-    @patch("jarvis.brain.OllamaBrain")
+    @patch("kareem.brain.OllamaBrain")
     def test_hosted_validation_error_with_empty_fallback_notifies(self, mock_ollama_cls):
         mock_local = MagicMock()
         mock_local.chat.return_value = (
@@ -193,7 +193,7 @@ class HostedBrainEndToEndReproTests(unittest.TestCase):
                 "The hosted model didn't answer (Tool call validation failed: "
                 "attempted to call tool 'calendar_add_event' which was not in "
                 "request.tools).\nThis usually means no internet, or a wrong "
-                "key/model in .env / jarvis/config.py."
+                "key/model in .env / kareem/config.py."
             )
 
         brain._create_with_retry = fake_create_with_retry
@@ -217,14 +217,14 @@ class HostedBrainEndToEndReproTests(unittest.TestCase):
 
 
 class AgentNotifyToolFailureTests(unittest.TestCase):
-    """jarvis.agent.Agent._notify_tool_failure and its wiring into send()."""
+    """kareem.agent.Agent._notify_tool_failure and its wiring into send()."""
 
     def test_notify_tool_failure_pushes_to_activity_feed_and_session_log(self):
         agent = Agent.__new__(Agent)
         received = []
         agent._on_tool = lambda event: received.append(event)
 
-        with patch("jarvis.session_log.log_event") as mock_log:
+        with patch("kareem.session_log.log_event") as mock_log:
             agent._notify_tool_failure("tool_call", "tool call failed: something broke")
 
         self.assertEqual(len(received), 1)
@@ -241,14 +241,14 @@ class AgentNotifyToolFailureTests(unittest.TestCase):
         # Console mode (no on_tool wired up at all) must not raise.
         agent = Agent.__new__(Agent)
         agent._on_tool = None
-        with patch("jarvis.session_log.log_event") as mock_log:
+        with patch("kareem.session_log.log_event") as mock_log:
             agent._notify_tool_failure("tool_call", "detail")
         mock_log.assert_called_once()
 
     def test_send_notifies_and_reraises_when_brain_raises(self):
         # The worst case: hosted fails AND no local fallback exists, so the
         # exception propagates all the way out of brain.chat(). Before this
-        # fix, jarvis/web/server.py's run_turn still caught this generically
+        # fix, kareem/web/server.py's run_turn still caught this generically
         # (an "engine error" toast), but NOTHING reached the Activity feed
         # or session log to say a tool call was even involved.
         agent = Agent.__new__(Agent)

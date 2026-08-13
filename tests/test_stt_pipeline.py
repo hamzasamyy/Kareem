@@ -3,8 +3,8 @@ from unittest import mock
 
 import numpy as np
 
-from jarvis import config
-from jarvis.voice import stt
+from kareem import config
+from kareem.voice import stt
 
 
 class NormalizeAudioTests(unittest.TestCase):

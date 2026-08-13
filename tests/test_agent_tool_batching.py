@@ -2,14 +2,14 @@ import threading
 import time
 import unittest
 
-from jarvis.agent import Agent, _CONFIRMATION_CAPABLE_TOOLS
+from kareem.agent import Agent, _CONFIRMATION_CAPABLE_TOOLS
 
 
 class ExecuteToolCallsTests(unittest.TestCase):
     """Agent._execute_tool_calls: same-round tool calls run concurrently when
     none of them can ever require confirmation, and strictly sequentially
     (in original order) the moment any of them can — see the rationale on
-    _CONFIRMATION_CAPABLE_TOOLS in jarvis/agent.py."""
+    _CONFIRMATION_CAPABLE_TOOLS in kareem/agent.py."""
 
     def _make_agent(self):
         return Agent.__new__(Agent)
@@ -100,9 +100,9 @@ class ExecuteToolCallsTests(unittest.TestCase):
 
     def test_confirmation_capable_tools_pins_known_guard_calling_tools(self):
         # Documents the exhaustive set derived from `grep "guard(" -r
-        # jarvis/tools/` at the time this was written. If this test starts
+        # kareem/tools/` at the time this was written. If this test starts
         # failing because a new tool now calls guard(), add its name to
-        # _CONFIRMATION_CAPABLE_TOOLS in jarvis/agent.py, not just this test.
+        # _CONFIRMATION_CAPABLE_TOOLS in kareem/agent.py, not just this test.
         expected = {
             "delete_file", "move_file",
             "run_command", "run_python", "run_claude_code", "shutdown_or_restart",

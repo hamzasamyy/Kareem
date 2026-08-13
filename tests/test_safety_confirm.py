@@ -9,14 +9,14 @@ confirm() sees them, so this only governs typed answers."""
 import unittest
 from unittest.mock import patch
 
-from jarvis import safety
+from kareem import safety
 
 
 class ConfirmAffirmativeTests(unittest.TestCase):
     def _confirm(self, response):
         # ask_fn bypasses console input(); patch out the log side effects so the
         # test doesn't depend on (or write to) session/log state.
-        with patch("jarvis.session_log.log_event"), patch.object(safety, "log_action"):
+        with patch("kareem.session_log.log_event"), patch.object(safety, "log_action"):
             return safety.confirm("run_code", "Run this snippet", ask_fn=lambda _prompt: response)
 
     def test_broadened_affirmatives_are_accepted(self):

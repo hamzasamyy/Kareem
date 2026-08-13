@@ -9,7 +9,7 @@ when EVERY explicit year in the line is in the past."""
 import unittest
 from datetime import datetime
 
-from jarvis.guc import parser
+from kareem.guc import parser
 
 
 class ArchiveNoiseFilterTests(unittest.TestCase):

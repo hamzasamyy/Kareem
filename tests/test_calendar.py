@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, time, timedelta
 from unittest.mock import MagicMock, patch
 
-from jarvis.tools import calendar
+from kareem.tools import calendar
 
 
 class RangeBoundsTests(unittest.TestCase):
@@ -110,7 +110,7 @@ class CalendarListEventsToolTests(unittest.TestCase):
     mocked out — confirms the exact repro ("whats on my calendar yesterday")
     no longer hits the old rejection message at the tool-call level."""
 
-    @patch("jarvis.tools.calendar.get_calendar_service")
+    @patch("kareem.tools.calendar.get_calendar_service")
     def test_yesterday_no_longer_rejected_by_the_tool(self, mock_get_service):
         mock_service = MagicMock()
         mock_service.events.return_value.list.return_value.execute.return_value = {"items": []}
@@ -121,7 +121,7 @@ class CalendarListEventsToolTests(unittest.TestCase):
         self.assertNotIn("Use 'today'", result)
         self.assertIn("yesterday", result)
 
-    @patch("jarvis.tools.calendar.get_calendar_service")
+    @patch("kareem.tools.calendar.get_calendar_service")
     def test_last_week_no_longer_rejected_by_the_tool(self, mock_get_service):
         mock_service = MagicMock()
         mock_service.events.return_value.list.return_value.execute.return_value = {"items": []}

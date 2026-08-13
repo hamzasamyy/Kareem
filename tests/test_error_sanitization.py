@@ -1,15 +1,15 @@
 """F1 / #3: the shared user-facing error sanitizer.
 
 Every surface that reports a failure (web server, console, calendar tool,
-hosted brain) routes exceptions through jarvis.errors.user_safe_error so a raw
+hosted brain) routes exceptions through kareem.errors.user_safe_error so a raw
 JSON/dict body, request URL, or nested exception repr can never reach the user.
 These lock in that guarantee and the two former per-module copies now folded
 into it (brain's provider errors, calendar's Google HttpError)."""
 
 import unittest
 
-from jarvis.errors import user_safe_error
-from jarvis.tools import calendar as calendar_tool
+from kareem.errors import user_safe_error
+from kareem.tools import calendar as calendar_tool
 
 
 class _FakeGoogleHttpError(Exception):

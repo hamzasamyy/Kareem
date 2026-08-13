@@ -1,16 +1,16 @@
 import unittest
 
-from jarvis.tools.web import _refuse_internal_url
-from jarvis.web.server import _ALLOWED_ORIGINS, _origin_is_allowed, HOST, PORT
+from kareem.tools.web import _refuse_internal_url
+from kareem.web.server import _ALLOWED_ORIGINS, _origin_is_allowed, HOST, PORT
 
 
 class OriginCheckTests(unittest.TestCase):
     """_origin_is_allowed gates the WebSocket handshake and state-changing
-    REST requests — see jarvis/web/server.py's _ALLOWED_ORIGINS comment for
+    REST requests — see kareem/web/server.py's _ALLOWED_ORIGINS comment for
     why a malicious page in another browser tab is the actual threat this
     closes (localhost-only binding alone does not stop it)."""
 
-    def test_jarvis_own_origin_allowed(self):
+    def test_kareem_own_origin_allowed(self):
         self.assertTrue(_origin_is_allowed(f"http://{HOST}:{PORT}"))
 
     def test_localhost_variant_allowed(self):
@@ -28,7 +28,7 @@ class OriginCheckTests(unittest.TestCase):
         self.assertFalse(_origin_is_allowed(f"http://{HOST}:9999"))
 
     def test_https_variant_of_own_origin_rejected(self):
-        # Jarvis only ever serves plain http on localhost; a scheme mismatch
+        # Kareem only ever serves plain http on localhost; a scheme mismatch
         # should not be silently accepted.
         self.assertFalse(_origin_is_allowed(f"https://{HOST}:{PORT}"))
 

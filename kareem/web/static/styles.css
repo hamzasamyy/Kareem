@@ -1,0 +1,761 @@
+/* ============================================================================
+   Kareem web UI — dark HUD styling. Hand-editable, no build step.
+   Palette: near-black base, glassy panels, ONE cyan accent; amber is reserved
+   for "confirmation required".
+   ========================================================================== */
+
+:root {
+  --bg:        #0a0e14;
+  --panel:     rgba(148, 184, 216, 0.045);  /* glassy card fill */
+  --panel-edge:rgba(148, 184, 216, 0.14);   /* soft panel border */
+  --ink:       #dce5ef;                     /* primary text */
+  --ink-dim:   #8b98a9;                     /* secondary text */
+  --muted:     #5c6a7d;                     /* labels, timestamps */
+  --accent:    #22d3ee;                     /* THE accent — cyan */
+  --accent-dim:rgba(34, 211, 238, 0.35);
+  --amber:     #fcbf3f;                     /* confirmation-required only */
+  --danger:    #f87171;                     /* errors / lost link */
+  --font-ui:   "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+  --statusbar-h: 52px;
+  --rail-w: 300px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+.mono { font-family: var(--font-mono); }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- backdrop */
+
+.backdrop {
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    /* soft cyan glow, top center */
+    radial-gradient(ellipse 70% 45% at 50% -8%, rgba(34, 211, 238, 0.075), transparent 60%),
+    /* faint grid */
+    linear-gradient(rgba(148, 184, 216, 0.033) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 184, 216, 0.033) 1px, transparent 1px),
+    var(--bg);
+  background-size: auto, 44px 44px, 44px 44px, auto;
+}
+.backdrop::after {           /* scanlines + vignette */
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.14) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse 90% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.5));
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------- statusbar */
+
+.statusbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  /* Above the overlays (History/Trackers/Memory are z-index 60) so their
+     toggle buttons stay clickable while a panel is open — otherwise you can
+     only switch between panels by first closing the current one, and the
+     "opening one closes the others" logic those panels already have becomes
+     unreachable through a real click. */
+  z-index: 70;
+  height: var(--statusbar-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  /* No backdrop-filter here on purpose: this bar sits fixed above the
+     actively-scrolling chat, and the browser has to re-blur whatever's
+     behind it on every scroll-compositing frame — expensive, especially on
+     integrated GPUs, and was a real source of scroll jank. A near-opaque
+     solid background gives nearly the same look for free. */
+  background: rgba(10, 14, 20, 0.94);
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+.statusbar-left, .statusbar-right { display: flex; align-items: center; gap: 12px; }
+
+.wordmark {
+  font-family: var(--font-ui);
+  font-weight: 700; font-size: 15px; letter-spacing: 0.32em;
+  color: var(--ink);
+  text-shadow: 0 0 18px var(--accent-dim);
+}
+
+.statusline { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+
+/* --- the Kareem ring: idle = breathing, thinking = spinning arc --- */
+.ring { width: 30px; height: 30px; }
+.ring svg { width: 100%; height: 100%; display: block; }
+.ring-track { fill: none; stroke: rgba(34, 211, 238, 0.18); stroke-width: 2; }
+.ring-arc {
+  fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round;
+  stroke-dasharray: 26 69;            /* short arc on r=15 circumference */
+  transform-origin: center;
+  filter: drop-shadow(0 0 4px var(--accent-dim));
+  animation: ring-breathe 3.2s ease-in-out infinite;
+}
+.ring-core { fill: var(--accent); filter: drop-shadow(0 0 6px var(--accent)); }
+
+@keyframes ring-breathe {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+
+.ring.thinking .ring-arc {
+  animation: ring-spin 1.1s linear infinite;
+  opacity: 1;
+}
+.ring.listening .ring-arc { animation: ring-breathe 0.9s ease-in-out infinite; }
+
+/* --- connection dot --- */
+.conn { display: flex; align-items: center; gap: 6px; }
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--danger); box-shadow: 0 0 8px rgba(248, 113, 113, 0.6);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.conn.online .conn-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.conn-label { font-size: 10px; letter-spacing: 0.14em; color: var(--muted); }
+
+.rail-toggle {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 0.04em;
+  color: var(--ink-dim); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 8px;
+  padding: 6px 11px; cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.rail-toggle svg { width: 14px; height: 14px; }
+.rail-toggle:hover { color: var(--accent); border-color: var(--accent-dim); }
+.rail-toggle[aria-expanded="true"] { color: var(--accent); }
+
+/* ------------------------------------------------------------------ layout */
+
+.layout {
+  display: flex;
+  height: 100vh;
+  padding-top: var(--statusbar-h);
+}
+.layout[hidden] { display: none; }
+
+.chat-pane {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+
+/* -------------------------------------------------------------- voice hero */
+/* --orb-scroll-ratio is set continuously by app.js on every scroll tick (1 =
+   full size at the live bottom edge, 0 = collapsed at the very top). The
+   orb's own width/height (real layout size, not a transform) and the
+   container's max-height are also set directly by app.js on the same scroll
+   tick — deliberately NOT animated via CSS transition, since retriggering a
+   transition every scroll frame is what caused the UI to lag while
+   scrolling. Only opacity (cheap, compositor-only) gets a CSS var here. */
+.voice-hero {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+  padding: 16px 20px 10px;
+  overflow: hidden;
+  --orb-scroll-ratio: 1;
+}
+.voice-hero.scroll-hidden .orb-button,
+.voice-hero.scroll-hidden .voice-mode { pointer-events: none; }
+.orb-button {
+  width: 180px; height: 180px; padding: 0; display: block;
+  border: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  filter: drop-shadow(0 0 16px rgba(34, 211, 238, 0.18));
+  opacity: var(--orb-scroll-ratio);
+  transition: filter 0.25s ease;
+}
+.orb-button:hover { transform: scale(1.035); filter: drop-shadow(0 0 23px rgba(34, 211, 238, 0.3)); }
+.orb-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+.orb-button.confirm-pending { filter: drop-shadow(0 0 22px rgba(252, 191, 63, 0.38)); }
+#orb-canvas { display: block; width: 100%; height: 100%; }
+.orb-status { min-height: 18px; margin: 3px 0 10px; color: var(--ink-dim); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: var(--orb-scroll-ratio); }
+.voice-mode { display: flex; padding: 3px; border: 1px solid var(--panel-edge); border-radius: 999px; background: var(--panel); opacity: var(--orb-scroll-ratio); }
+.mode-btn {
+  padding: 5px 12px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--ink-dim); cursor: pointer;
+  font: 500 11px var(--font-ui); transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.mode-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent-dim); background: rgba(34, 211, 238, 0.07); }
+
+/* ------------------------------------------------------------------- chat */
+
+.chat-scroll { flex: 1; overflow-y: auto; scrollbar-gutter: stable; }
+
+.chat-column {
+  max-width: 760px; margin: 0 auto;
+  padding: 28px 20px 12px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* --- empty state --- */
+.empty {
+  margin: 6px auto 0; text-align: center; color: var(--ink-dim);
+  animation: rise 0.7s ease both;
+}
+.empty[hidden] { display: none; }
+.empty h1 {
+  font-family: var(--font-ui); font-weight: 500; font-size: 26px;
+  letter-spacing: 0.02em; color: var(--ink); margin: 20px 0 8px;
+}
+.empty p { font-size: 14px; color: var(--muted); margin: 0; }
+.empty-ring { width: 68px; height: 68px; margin: 0 auto; }
+.empty-ring svg { width: 100%; height: 100%; }
+.er-outer { fill: none; stroke: rgba(34, 211, 238, 0.22); stroke-width: 1;
+            stroke-dasharray: 4 7; transform-origin: center;
+            animation: ring-spin 40s linear infinite; }
+.er-mid   { fill: none; stroke: var(--accent); stroke-width: 1.5;
+            stroke-dasharray: 60 179; stroke-linecap: round; transform-origin: center;
+            animation: ring-spin 9s linear infinite;
+            filter: drop-shadow(0 0 6px var(--accent-dim)); }
+.er-core  { fill: var(--accent); filter: drop-shadow(0 0 14px var(--accent));
+            animation: ring-breathe 3.2s ease-in-out infinite; }
+
+/* --- messages --- */
+.msg { animation: rise 0.35s ease both; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.msg-meta {
+  display: flex; align-items: baseline; gap: 8px;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.14em; color: var(--muted);
+  margin-bottom: 6px;
+}
+.msg.you .msg-meta { justify-content: flex-end; }
+.msg.kareem .msg-meta .who { color: var(--accent); }
+
+.msg-body { white-space: pre-wrap; overflow-wrap: break-word; }
+
+.msg.you .msg-body {
+  margin-left: auto; max-width: 85%; width: fit-content;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px 14px 4px 14px;
+  padding: 10px 14px;
+}
+
+.msg.kareem .msg-body {
+  max-width: 100%;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--accent-dim);
+}
+
+.msg.kareem.error .msg-body { border-left-color: var(--danger); color: var(--ink-dim); }
+
+.history-note {
+  color: var(--muted); font-size: 11px; letter-spacing: 0.03em;
+  padding: 5px 10px; border-left: 2px solid var(--panel-edge);
+}
+
+/* blinking caret while a reply streams in */
+.msg.streaming .msg-body::after {
+  content: "▍";
+  color: var(--accent);
+  animation: caret 0.85s steps(1) infinite;
+  text-shadow: 0 0 8px var(--accent-dim);
+}
+@keyframes caret { 50% { opacity: 0; } }
+
+/* --------------------------------------------------------- confirmation card
+   The ONLY place the amber accent appears — risky actions must stand out. */
+
+.confirm-card {
+  border: 1px solid rgba(252, 191, 63, 0.35);
+  border-left: 3px solid var(--amber);
+  border-radius: 12px;
+  background:
+    linear-gradient(rgba(252, 191, 63, 0.05), rgba(252, 191, 63, 0.02)),
+    var(--panel);
+  padding: 14px 16px;
+  animation: rise 0.35s ease both;
+  box-shadow: 0 0 24px rgba(252, 191, 63, 0.07);
+}
+
+.cc-head {
+  font-size: 10px; letter-spacing: 0.22em; color: var(--amber);
+  margin-bottom: 8px;
+}
+.cc-head::before { content: "⚠ "; }
+
+.cc-desc {
+  color: var(--ink);
+  font-size: 14.5px;
+  overflow-wrap: break-word;
+  margin-bottom: 12px;
+}
+
+.cc-actions { display: flex; gap: 10px; }
+
+.cc-actions button {
+  font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+  padding: 7px 18px; border-radius: 9px; cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+.cc-actions button:disabled { opacity: 0.45; cursor: default; }
+
+.cc-yes {
+  background: rgba(252, 191, 63, 0.16); color: var(--amber);
+  border: 1px solid rgba(252, 191, 63, 0.5);
+}
+.cc-yes:hover:not(:disabled) {
+  background: rgba(252, 191, 63, 0.28);
+  box-shadow: 0 0 16px rgba(252, 191, 63, 0.25);
+}
+
+.cc-no {
+  background: none; color: var(--ink-dim);
+  border: 1px solid var(--panel-edge);
+}
+.cc-no:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-dim); }
+
+.cc-state { font-size: 11px; color: var(--muted); margin-top: 10px; }
+.cc-state:empty { display: none; }
+
+.confirm-card.resolved { opacity: 0.75; }
+.confirm-card.approved .cc-state { color: var(--accent); }
+.confirm-card.declined .cc-state { color: var(--ink-dim); }
+
+/* ---------------------------------------------------------------- inputbar */
+
+.inputbar {
+  max-width: 760px; width: 100%; margin: 0 auto;
+  padding: 10px 20px calc(14px + env(safe-area-inset-bottom));
+}
+
+.image-previews { display: flex; gap: 8px; margin: 0 4px 8px; flex-wrap: wrap; }
+.image-previews:empty { display: none; }
+.image-preview { position: relative; width: 64px; height: 64px; }
+.image-preview img, .message-images img { width: 100%; height: 100%; object-fit: cover;
+  border: 1px solid var(--panel-edge); border-radius: 9px; }
+.image-remove { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+  border-radius: 50%; border: 1px solid var(--panel-edge); color: var(--ink);
+  background: var(--panel); cursor: pointer; line-height: 16px; }
+.message-images { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 7px; }
+.message-images img { width: 88px; height: 88px; }
+
+.input-shell {
+  display: flex; align-items: center; gap: 6px;
+  /* No backdrop-filter here either — same scroll-jank reasoning as
+     .statusbar above; this bar also sits fixed over scrolling chat. */
+  background: rgba(17, 22, 31, 0.97);
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+  padding: 6px 6px 6px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-shell:focus-within {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 1px var(--accent-dim), 0 0 24px rgba(34, 211, 238, 0.07);
+}
+
+#input {
+  flex: 1; min-width: 0;
+  background: none; border: 0; outline: none;
+  color: var(--ink); font-family: var(--font-body); font-size: 15px;
+  padding: 8px 0;
+}
+#input::placeholder { color: var(--muted); }
+
+.attach, .mic, .send {
+  display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 10px;
+  border: 1px solid transparent; cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.attach svg, .mic svg, .send svg { width: 19px; height: 19px; }
+
+.attach, .mic { background: none; color: var(--muted); }
+.attach:hover, .mic:hover { color: var(--ink-dim); }
+.attach:disabled { opacity: 0.35; cursor: default; }
+.mic svg rect { fill: currentColor; }
+/* listening state (wired up in the voice step) — pulsing cyan glow */
+.mic.listening {
+  color: var(--accent); border-color: var(--accent-dim);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.35); }
+  50%      { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0); }
+}
+
+.send { background: rgba(34, 211, 238, 0.12); color: var(--accent);
+        border-color: var(--accent-dim); }
+.send:hover { background: rgba(34, 211, 238, 0.22); box-shadow: 0 0 16px rgba(34, 211, 238, 0.25); }
+.send:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+
+.inputbar-note {
+  text-align: center; font-size: 10px; letter-spacing: 0.12em;
+  color: var(--muted); margin: 8px 0 0; opacity: 0.7;
+}
+
+/* -------------------------------------------------------------------- rail */
+
+.rail {
+  width: var(--rail-w); flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--panel-edge);
+  background: rgba(10, 14, 20, 0.55);
+  backdrop-filter: blur(8px);
+  transition: margin-right 0.3s ease;
+}
+.rail.collapsed { margin-right: calc(var(--rail-w) * -1); visibility: hidden; }
+
+.rail-head {
+  font-size: 10px; letter-spacing: 0.22em; color: var(--muted);
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+.rail-feed {
+  list-style: none; margin: 0; padding: 10px 14px;
+  overflow-y: auto; flex: 1;
+  font-size: 11px; line-height: 1.5;
+}
+
+.rail-feed li {
+  display: grid; grid-template-columns: 14px 1fr; gap: 8px;
+  padding: 6px 2px;
+  color: var(--ink-dim);
+  border-bottom: 1px solid rgba(148, 184, 216, 0.05);
+  animation: rise 0.3s ease both;
+}
+.rail-feed .icon { color: var(--muted); padding-top: 1px; }
+.rail-feed .icon svg { width: 12px; height: 12px; display: block; }
+.rail-feed .t { color: var(--muted); font-size: 9.5px; letter-spacing: 0.06em; display: block; }
+.rail-feed li.accent .icon, .rail-feed li.accent { color: var(--accent); }
+.rail-feed li.dim { color: var(--muted); }
+.rail-feed li.warn .icon, .rail-feed li.warn { color: var(--amber); }
+.rail-feed li.err .icon, .rail-feed li.err { color: var(--danger); }
+
+/* ------------------------------------------------------------------- toast */
+
+.toast {
+  position: fixed; left: 50%; bottom: 90px; z-index: 40;
+  transform: translate(-50%, 12px);
+  background: rgba(17, 22, 31, 0.95);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  color: var(--ink-dim); font-size: 12px;
+  padding: 9px 16px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* --------------------------------------------------------- history overlay */
+
+.history-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(4, 7, 11, 0.78); backdrop-filter: blur(8px);
+}
+.history-overlay[hidden] { display: none; }
+.history-panel {
+  width: min(760px, 100%); height: min(760px, calc(100vh - 48px));
+  display: flex; flex-direction: column;
+  background: rgba(10, 14, 20, 0.98);
+  border: 1px solid var(--accent-dim); border-radius: 14px;
+  box-shadow: 0 0 50px rgba(34, 211, 238, 0.09);
+  overflow: hidden;
+}
+.history-head {
+  min-height: 54px; display: grid; grid-template-columns: 90px 1fr 90px;
+  align-items: center; border-bottom: 1px solid var(--panel-edge); padding: 0 14px;
+}
+.history-head h2 { margin: 0; text-align: center; color: var(--accent);
+  font-size: 12px; letter-spacing: 0.2em; }
+.history-back, .history-close {
+  color: var(--ink-dim); background: none; border: 0; cursor: pointer;
+}
+.history-back { justify-self: start; font-size: 10px; letter-spacing: 0.1em; }
+.history-close { justify-self: end; font-size: 25px; line-height: 1; }
+.history-back:hover, .history-close:hover { color: var(--accent); }
+.history-search { padding: 12px 18px; border-bottom: 1px solid var(--panel-edge); }
+.history-search input { width: 100%; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 8px; padding: 9px 11px;
+  font: 12px var(--font-body); color-scheme: dark; }
+.history-search input:focus { outline: 1px solid var(--accent-dim); }
+.history-content { flex: 1; overflow-y: auto; padding: 14px 18px 24px; }
+.session-row {
+  width: 100%; display: flex; align-items: stretch; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 10px;
+  margin-bottom: 9px; overflow: hidden;
+}
+.session-row:hover { border-color: var(--accent-dim); background: rgba(34, 211, 238, 0.055); }
+.session-row-open {
+  min-width: 0; flex: 1; display: grid; grid-template-columns: 1fr auto; gap: 5px 14px;
+  text-align: left; color: var(--ink); background: transparent; border: 0;
+  padding: 12px 14px; cursor: pointer; font: inherit;
+}
+.session-row-top { color: var(--ink-dim); font-size: 10px; letter-spacing: 0.06em; }
+.live-mark { color: var(--accent); margin-left: 10px; }
+.session-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-search-snippet { grid-column: 1 / -1; white-space: normal; color: var(--ink); }
+.session-search-snippet mark { color: var(--ink); background: rgba(252, 191, 63, 0.35); }
+.session-count { grid-row: 1 / 3; grid-column: 2; align-self: center;
+  color: var(--muted); font-size: 10px; }
+.session-row-delete {
+  flex: 0 0 auto; align-self: center; min-width: 38px; height: 34px; margin-right: 9px;
+  display: grid; place-items: center; color: var(--danger); background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.25); border-radius: 8px; cursor: pointer;
+  font: 500 10px var(--font-ui); letter-spacing: 0.02em;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.session-row-delete svg { width: 15px; height: 15px; }
+.session-row-delete:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.1); border-color: var(--danger);
+  box-shadow: 0 0 14px rgba(248, 113, 113, 0.12);
+}
+.session-row-delete.confirm { min-width: 72px; color: var(--amber);
+  border-color: rgba(252, 191, 63, 0.55); background: rgba(252, 191, 63, 0.08); }
+.session-row-delete:disabled { opacity: 0.35; cursor: not-allowed; }
+.history-empty { color: var(--muted); text-align: center; margin-top: 12vh; }
+
+/* ---------------------------------------------- history panel (scoped fixes) */
+/* #history-overlay only — Trackers/Memory share .history-overlay/.history-panel
+   and must keep their current spacing untouched. */
+#history-overlay {
+  /* clear the fixed status bar (z-index above the overlay) with the same
+     24px breathing room already used for the overlay's other three sides */
+  padding-top: calc(var(--statusbar-h) + 24px);
+}
+#history-overlay .history-panel {
+  height: min(760px, calc(100vh - var(--statusbar-h) - 48px));
+}
+@media (min-width: 901px) {
+  /* At desktop widths the rail is a real 300px flex column, not an overlay,
+     so centering in the full viewport (the default .history-overlay
+     behavior) visibly skews the panel left of the chat area. Reserve the
+     rail's width so the panel centers in the space the user actually reads
+     it against. Only when the rail is expanded — collapsed, it takes no
+     layout space, so the base full-width centering is already correct. */
+  body:has(#rail:not(.collapsed)) #history-overlay {
+    padding-right: calc(var(--rail-w) + 24px);
+  }
+}
+
+#history-content .session-row-open {
+  padding: 14px;      /* even on all four sides (was 12px/14px) */
+  gap: 7px 14px;       /* a touch more room between the meta line and title */
+}
+#history-content .session-row-delete {
+  margin-right: 12px;  /* was 9px — read as crowded against the card edge */
+}
+.history-session-controls { display: flex; justify-content: flex-end; align-items: center;
+  gap: 9px; min-height: 38px; margin-bottom: 12px; }
+.history-session-controls .session-row-delete { margin-right: 0; }
+.history-resume { color: var(--accent); background: rgba(34, 211, 238, 0.1);
+  border: 1px solid var(--accent-dim); border-radius: 9px; padding: 8px 13px;
+  cursor: pointer; font-family: var(--font-ui); }
+.history-resume:hover:not(:disabled) { background: rgba(34, 211, 238, 0.2); }
+.history-resume:disabled { opacity: 0.55; cursor: default; }
+.history-active { color: var(--accent); font-size: 10px; letter-spacing: 0.08em; }
+.history-msg { margin: 10px 0 20px; }
+.history-msg.you .msg-meta { justify-content: flex-end; }
+.history-msg.you .msg-body { margin-left: auto; width: fit-content; max-width: 85%;
+  padding: 9px 13px; background: var(--panel); border: 1px solid var(--panel-edge);
+  border-radius: 13px 13px 4px 13px; }
+.history-msg.kareem .msg-meta { color: var(--accent); }
+.history-msg.kareem .msg-body { padding-left: 13px; border-left: 2px solid var(--accent-dim); }
+.history-tool { color: var(--muted); font-size: 10px; overflow-wrap: anywhere;
+  padding: 5px 10px; border-left: 2px solid var(--panel-edge); }
+
+/* ----------------------------------------------------------- trackers panel */
+
+.tracker-panel, .memory-panel { height: min(720px, calc(100vh - var(--statusbar-h) - 48px)); }
+
+/* ------------------------------------------ trackers/memory (scoped fixes) */
+/* Same treatment as #history-overlay: clear the status bar, and center
+   within the chat area (not the full viewport) when the rail is expanded.
+   Kept separate from #history-overlay's rules so History is never affected
+   by edits made here, and vice versa. */
+#tracker-overlay, #memory-overlay {
+  padding-top: calc(var(--statusbar-h) + 24px);
+}
+@media (min-width: 901px) {
+  body:has(#rail:not(.collapsed)) #tracker-overlay,
+  body:has(#rail:not(.collapsed)) #memory-overlay {
+    padding-right: calc(var(--rail-w) + 24px);
+  }
+}
+
+/* ---------------------------------------------------------- GUC dashboard */
+
+.guc-screen { position: fixed; inset: var(--statusbar-h) 0 0; z-index: 40;
+  display: flex; flex-direction: column; background: rgba(10, 14, 20, .98); }
+.guc-screen[hidden] { display: none; }
+.guc-screen-head { min-height: 66px; display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; padding: 0 24px; border-bottom: 1px solid var(--panel-edge); }
+.guc-screen-head h1 { margin: 0; color: var(--ink); font-size: 17px; letter-spacing: .2em; }
+.guc-screen-head .history-back { justify-self: start; }
+.guc-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+  min-height: 58px; padding: 10px 18px; border-bottom: 1px solid var(--panel-edge); }
+.guc-last-checked { flex: 1; color: var(--muted); font-size: 10px; letter-spacing: 0.06em; }
+.guc-logins { display: flex; gap: 12px; }
+.guc-login { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-dim);
+  font-size: 10px; letter-spacing: 0.06em; }
+.guc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.guc-dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.guc-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+.guc-check-now, .guc-approve { color: var(--accent); background: rgba(34, 211, 238, 0.1);
+  border: 1px solid var(--accent-dim); border-radius: 9px; padding: 8px 13px;
+  cursor: pointer; font-family: var(--font-ui); }
+.guc-check-now:hover:not(:disabled), .guc-approve:hover:not(:disabled) { background: rgba(34, 211, 238, 0.2); }
+.guc-check-now:disabled, .guc-review-actions button:disabled { opacity: .55; cursor: default; }
+/* Explicit min-heights (not just content-driven padding) so these rows
+   can't visually collide with .guc-content below them if a font hasn't
+   finished loading yet and swaps in in a taller fallback mid-layout —
+   couldn't reproduce the reported overlap in headless testing across many
+   viewport sizes, so this is defensive hardening against the most likely
+   real-browser cause (font-load reflow), not a confirmed root-cause fix. */
+.guc-global-actions { padding: 12px 24px 10px; min-height: 47px; flex: 0 0 auto; }
+.guc-tabs { padding: 12px 24px 10px; min-height: 51px; flex: 0 0 auto; }
+.guc-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 18px; padding: 20px 24px 32px; }
+.guc-section-head { display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; }
+.guc-section-heading { margin: 0; font: 500 20px var(--font-ui); }
+.guc-bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.guc-bulk-action, .guc-toggle-action { border-radius: 8px;
+  padding: 7px 10px; cursor: pointer; font: 500 10px var(--font-ui);
+  color: var(--accent); background: rgba(34, 211, 238, .08);
+  border: 1px solid var(--accent-dim); }
+.guc-bulk-action:hover:not(:disabled), .guc-toggle-action:hover:not(:disabled) { background: rgba(34, 211, 238, .18); }
+.guc-bulk-actions button:disabled, .guc-item-actions button:disabled { opacity: .5; cursor: default; }
+.guc-section-title { margin: 2px 2px 9px; color: var(--accent); font-size: 10px;
+  letter-spacing: .14em; }
+.guc-tracked-section { padding: 14px; border: 1px solid var(--panel-edge);
+  border-radius: 10px; background: var(--panel); }
+.guc-item { display: flex; align-items: center; gap: 16px; padding: 13px 0;
+  border-top: 1px solid rgba(148, 184, 216, .08); transition: opacity .15s; }
+.guc-item:first-of-type { border-top: 0; }
+.guc-item.seen { opacity: .6; }
+.guc-item-detail { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.guc-item-actions { flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.guc-toggle-action[aria-pressed="true"] { color: var(--ink-dim); background: rgba(148, 184, 216, .08); }
+.guc-item-text { overflow-wrap: anywhere; }
+.guc-item-category { align-self: flex-start; color: var(--muted); font-size: 9px;
+  letter-spacing: .1em; padding: 2px 6px; border: 1px solid var(--panel-edge);
+  border-radius: 5px; }
+.guc-item-due { color: var(--muted); font-size: 9.5px; }
+.guc-review-section { padding: 14px; border: 1px solid rgba(252, 191, 63, .45);
+  border-radius: 10px; background: rgba(252, 191, 63, .06); }
+.guc-review-section .guc-section-title { color: var(--amber); }
+.guc-review-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 14px;
+  padding: 14px 0 14px 12px; border-top: 1px solid rgba(252, 191, 63, .16);
+  /* mirrors .confirm-card's signature thick amber left edge so a flagged
+     row reads as unmistakably "needs attention" at a glance, not just via
+     the section's own subtle background tint */
+  border-left: 3px solid rgba(252, 191, 63, .5); }
+.guc-review-row:first-of-type { border-top: 0; }
+.guc-review-actions { grid-row: 1 / 3; grid-column: 2; display: flex; align-items: center; gap: 8px; }
+.guc-dismiss { color: var(--danger); background: transparent;
+  border: 1px solid rgba(248, 113, 113, .25); border-radius: 8px; padding: 8px 11px;
+  cursor: pointer; font-family: var(--font-ui); }
+.guc-dismiss:hover:not(:disabled) { background: rgba(248, 113, 113, .1); border-color: var(--danger); }
+.guc-empty { color: var(--muted); text-align: center; margin: auto; max-width: 520px; }
+@media (max-width: 650px) {
+  .guc-last-checked { flex-basis: 100%; }
+  .guc-screen-head { padding: 0 14px; }
+  .guc-screen-head h1 { font-size: 13px; }
+  .guc-content { padding: 16px 14px 28px; }
+  .guc-global-actions, .guc-tabs { padding-left: 14px; padding-right: 14px; }
+  .guc-item { align-items: flex-start; flex-direction: column; }
+  .guc-review-row { grid-template-columns: 1fr; }
+  .guc-review-actions { grid-row: auto; grid-column: auto; }
+}
+.tracker-tabs { display: flex; gap: 7px; padding: 12px 18px 0; overflow-x: auto; }
+.tracker-tabs button { white-space: nowrap; color: var(--ink-dim); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 8px; padding: 7px 11px;
+  cursor: pointer; font: 500 11px var(--font-ui); }
+.tracker-tabs button:hover, .tracker-tabs button[aria-selected="true"] {
+  color: var(--accent); border-color: var(--accent-dim); }
+.tracker-form { display: grid; grid-template-columns: minmax(150px, 1fr) auto auto auto;
+  gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--panel-edge); }
+.tracker-form input { min-width: 0; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 8px; padding: 8px 10px;
+  font: 12px var(--font-body); color-scheme: dark; }
+.tracker-form input:focus { outline: 1px solid var(--accent-dim); }
+.tracker-form button { color: var(--accent); background: rgba(34, 211, 238, 0.1);
+  border: 1px solid var(--accent-dim); border-radius: 8px; padding: 7px 14px;
+  cursor: pointer; font: 500 12px var(--font-ui); }
+.tracker-content { padding-top: 12px; }
+.tracker-row { align-items: center; padding-left: 10px; }
+.tracker-check { flex: 0 0 auto; width: 29px; height: 29px; border-radius: 50%;
+  color: transparent; background: transparent; border: 1px solid var(--accent-dim);
+  cursor: pointer; }
+.tracker-check:hover { color: var(--accent); background: rgba(34, 211, 238, 0.08); }
+.tracker-detail { min-width: 0; flex: 1; display: flex; flex-direction: column;
+  gap: 7px; padding: 14px 10px; }   /* was gap:4px, padding:11px 10px — match
+                                        History's card rhythm (also 7px/14px) */
+.tracker-item-text { overflow-wrap: anywhere; }
+.tracker-item-due { color: var(--muted); font-size: 9.5px; }
+.tracker-delete { margin-left: 2px; }
+#tracker-content .session-row-delete,
+#memory-content .session-row-delete {
+  margin-right: 12px;  /* was 9px — matches the History delete-button fix */
+}
+.tracker-group { margin: 18px 2px 8px; color: var(--accent); font-size: 10px;
+  letter-spacing: 0.14em; }
+.tracker-group:first-child { margin-top: 2px; }
+
+@media (max-width: 700px) {
+  .tracker-form { grid-template-columns: 1fr auto; }
+  .tracker-form input[type="datetime-local"], .tracker-form #tracker-list-name {
+    grid-column: 1 / -1; }
+}
+
+/* ------------------------------------------------------------ small screens */
+
+@media (max-width: 900px) {
+  .rail { position: fixed; right: 0; top: var(--statusbar-h); bottom: 0; z-index: 30;
+          box-shadow: -20px 0 40px rgba(0,0,0,0.5); }
+  .rail.collapsed { margin-right: 0; transform: translateX(100%); }
+  .statusline { display: none; }
+  .voice-hero { padding: 14px 12px 8px; }
+  .orb-button { width: 132px; height: 132px; }
+  .orb-status { margin-bottom: 7px; }
+}
+
+/* --------------------------------------------------------------- scrollbars */
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(148, 184, 216, 0.12); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 184, 216, 0.2); }
+
+/* ----------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .msg.streaming .msg-body::after { animation: none; }
+}

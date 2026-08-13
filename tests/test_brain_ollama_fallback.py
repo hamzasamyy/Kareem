@@ -1,6 +1,6 @@
 import unittest
 
-from jarvis.brain import HostedBrain
+from kareem.brain import HostedBrain
 
 
 class OllamaCompatibleMessagesTests(unittest.TestCase):

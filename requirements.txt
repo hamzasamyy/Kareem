@@ -1,4 +1,4 @@
-# Jarvis dependencies — versions verified on PyPI as current at time of writing.
+# Kareem dependencies — versions verified on PyPI as current at time of writing.
 # Install with: pip install -r requirements.txt
 
 # --- Config / secrets ---

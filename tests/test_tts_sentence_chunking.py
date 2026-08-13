@@ -9,9 +9,9 @@ import re
 import unittest
 from pathlib import Path
 
-from jarvis.brain import SentenceBuffer
+from kareem.brain import SentenceBuffer
 
-APP_JS = Path(__file__).resolve().parent.parent / "jarvis" / "web" / "static" / "app.js"
+APP_JS = Path(__file__).resolve().parent.parent / "kareem" / "web" / "static" / "app.js"
 
 
 class SentenceBufferTests(unittest.TestCase):

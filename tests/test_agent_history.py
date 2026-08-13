@@ -2,7 +2,7 @@ import copy
 import json
 import unittest
 
-from jarvis.agent import Agent, KEEP_RECENT_TURNS, TRIM_TRIGGER_TURNS
+from kareem.agent import Agent, KEEP_RECENT_TURNS, TRIM_TRIGGER_TURNS
 
 
 class SummaryBrain:
@@ -14,7 +14,7 @@ class SummaryBrain:
         self.calls.append((messages, tools, execute_tool))
         if self.error:
             raise self.error
-        return "The user and Jarvis established useful earlier context."
+        return "The user and Kareem established useful earlier context."
 
 
 def make_turn(number, with_tool=False):

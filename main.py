@@ -1,9 +1,9 @@
 """
-Jarvis entrypoint.
+Kareem entrypoint.
 
 Run it with:
-    python main.py            -> starts Jarvis (text chat + voice if available)
-    python main.py --check    -> verifies your setup without starting Jarvis
+    python main.py            -> starts Kareem (text chat + voice if available)
+    python main.py --check    -> verifies your setup without starting Kareem
     python main.py --no-voice -> text chat only, skip all voice features
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 
 if sys.stdout is None or sys.stderr is None:
     _background_log = open(
-        Path(__file__).resolve().parent / "jarvis_background.log",
+        Path(__file__).resolve().parent / "kareem_background.log",
         "a", encoding="utf-8", buffering=1,
     )
     if sys.stdout is None:
@@ -24,14 +24,14 @@ if sys.stdout is None or sys.stderr is None:
         sys.stderr = _background_log
 
 # The Windows console often defaults to a legacy encoding (cp1252) that
-# can't print emoji or some model output — switch to UTF-8 so Jarvis never
+# can't print emoji or some model output — switch to UTF-8 so Kareem never
 # crashes just because a reply contains a fancy character.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stdin, "reconfigure"):
     # utf-8-sig transparently strips the byte-order mark PowerShell adds
-    # when text is piped into Jarvis
+    # when text is piped into Kareem
     sys.stdin.reconfigure(encoding="utf-8-sig", errors="replace")
 
 
@@ -52,10 +52,10 @@ def run_check():
 
     # --- Config loads ---
     try:
-        from jarvis import config
+        from kareem import config
         print(f"[OK]   config.py loaded (BRAIN = '{config.BRAIN}')")
     except Exception as e:
-        print(f"[FAIL] Couldn't load jarvis/config.py: {e}")
+        print(f"[FAIL] Couldn't load kareem/config.py: {e}")
         return False
 
     # --- Core dependency imports ---
@@ -114,7 +114,7 @@ def run_check():
 
     # --- Playwright browser (needed for browser_open/browser_click AND the
     #     GUC integration, which both drive Chromium under the hood; warning
-    #     only — Jarvis still starts, those tools just report a clear error
+    #     only — Kareem still starts, those tools just report a clear error
     #     on first use instead of working) ---
     try:
         import playwright  # noqa: F401
@@ -197,34 +197,34 @@ def run_check():
 
     print("=" * 40)
     if all_ok:
-        print("Everything looks good. Run 'run_jarvis' (or python main.py) to start Kareem.")
+        print("Everything looks good. Run 'run_kareem' (or python main.py) to start Kareem.")
     else:
-        print("Some checks failed — fix the items above, then run 'run_jarvis --check' again.")
+        print("Some checks failed — fix the items above, then run 'run_kareem --check' again.")
     return all_ok
 
 
 def _require_project_interpreter():
-    """Fail fast, with the exact command to use, when Jarvis is launched under a
+    """Fail fast, with the exact command to use, when Kareem is launched under a
     Python that doesn't have its dependencies installed — the recurring
     'a bare python is 3.11, but the deps live in 3.12' trap on this machine.
 
     Without this, a core import fails deeper into startup with a misleading
     'pip install -r requirements.txt' message, which tempts a reinstall into
     the SAME wrong interpreter instead of switching to the right one. The
-    run_jarvis.bat launcher prevents the mistake; this catches it if you (or an
+    run_kareem.bat launcher prevents the mistake; this catches it if you (or an
     IDE run-config) invoke a bare `python main.py` anyway.
     """
     import importlib.util
     import os
 
-    from jarvis import config  # pure constants, no third-party imports — safe on any interpreter
+    from kareem import config  # pure constants, no third-party imports — safe on any interpreter
 
     brain_pkg = {"hosted": "openai", "ollama": "ollama", "claude": "anthropic"}.get(config.BRAIN, "openai")
     if importlib.util.find_spec(brain_pkg) is not None:
         return  # this interpreter has the configured brain's deps — good to go
 
     here = Path(__file__).resolve().parent
-    launcher = here / "run_jarvis.bat"
+    launcher = here / "run_kareem.bat"
     py312 = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Python" / "Python312" / "python.exe"
 
     out = [
@@ -241,7 +241,7 @@ def _require_project_interpreter():
         out += [
             " FIX (recommended) — use the launcher; it always picks the right Python:",
             f"     {launcher}",
-            "     ...or, from this folder, just type:   run_jarvis",
+            "     ...or, from this folder, just type:   run_kareem",
             "",
         ]
     if py312.exists():
@@ -251,7 +251,7 @@ def _require_project_interpreter():
             "",
         ]
     out += [
-        " Diagnose the full setup with:   run_jarvis --check",
+        " Diagnose the full setup with:   run_kareem --check",
         "",
         " (Only if the deps aren't installed ANYWHERE yet, install them into that",
         '  3.12 first:   "<python-3.12>" -m pip install -r requirements.txt )',
@@ -268,32 +268,32 @@ def main():
         ok = run_check()
         sys.exit(0 if ok else 1)
 
-    # Fail fast, with the exact command to use, if Jarvis was launched under a
+    # Fail fast, with the exact command to use, if Kareem was launched under a
     # Python that lacks its dependencies (the recurring wrong-interpreter trap).
-    # Runs AFTER --check so `run_jarvis --check` still gives the full diagnostic.
+    # Runs AFTER --check so `run_kareem --check` still gives the full diagnostic.
     _require_project_interpreter()
 
     # Must happen before ANY subsystem starts — this is the actual fix for
     # duplicate wake-word/hotkey/GUC-scheduler threads piling up: a second
     # `python main.py` used to get this far and start everything a second
     # time even though the web server below would fail to bind.
-    from jarvis import singleton
+    from kareem import singleton
     if not singleton.acquire():
         print("Kareem is already running — see http://127.0.0.1:8000")
         sys.exit(0)
 
     launch_cmd = [sys.executable] + sys.argv
 
-    from jarvis import config
-    from jarvis.agent import Agent
-    from jarvis.errors import user_safe_error
+    from kareem import config
+    from kareem.agent import Agent
+    from kareem.errors import user_safe_error
 
     # Optional web server module — imported here (before Agent, which is
     # slow) so we can fail fast on a port conflict. Missing fastapi/uvicorn
     # is a separate, pre-existing degrade-to-console-only case, not an error.
     web_server_module = None
     try:
-        from jarvis.web import server as web_server_module
+        from kareem.web import server as web_server_module
     except Exception:
         pass
 
@@ -331,7 +331,7 @@ def main():
                 target=web_server_module.run_server,
                 args=(agent, agent_lock),
                 daemon=True,
-                name="jarvis-web",
+                name="kareem-web",
             ).start()
             web_server = web_server_module
             print(f"Web interface: {web_server_module.URL}")
@@ -347,11 +347,11 @@ def main():
     voice = None
     if config.VOICE_ENABLED and "--no-voice" not in sys.argv:
         try:
-            from jarvis.voice.controller import VoiceController
+            from kareem.voice.controller import VoiceController
             voice = VoiceController(agent, agent_lock)
             if web_server is not None:
                 # "hey jarvis" / hotkey now opens the web UI (see WAKE_OPENS_WEB
-                # in jarvis/config.py to restore the old talk-out-loud behavior)
+                # in kareem/config.py to restore the old talk-out-loud behavior)
                 voice.open_web = web_server.open_page
             voice.start()
         except Exception as e:
@@ -360,7 +360,7 @@ def main():
 
     # --- reminders (toast-only when voice is disabled/unavailable) ---
     try:
-        from jarvis.reminders import start_reminder_thread
+        from kareem.reminders import start_reminder_thread
         speak_fn = (voice.speaker.speak
                     if voice and voice.speaker and voice.speaker.available else None)
         start_reminder_thread(speak_fn=speak_fn)
@@ -369,8 +369,8 @@ def main():
 
     # --- GUC deadline checks (optional, degrades gracefully) ---
     try:
-        from jarvis.guc import scheduler as guc_scheduler
-        from jarvis.guc import auth as guc_auth
+        from kareem.guc import scheduler as guc_scheduler
+        from kareem.guc import auth as guc_auth
         if guc_auth.credentials_configured():
             guc_scheduler.start_background_loop()
             print("GUC background checks: enabled (every ~45 min)")
@@ -384,14 +384,14 @@ def main():
     streamer = None
     if voice and voice.speaker and voice.speaker.available and config.STREAMING:
         try:
-            from jarvis.voice.tts import SentenceStreamer
+            from kareem.voice.tts import SentenceStreamer
             streamer = SentenceStreamer(voice.speaker)
             voice.streamer = streamer  # voice commands reuse the same queue
         except Exception as e:
             print(f"(speak-while-generating unavailable: {e})")
 
     try:
-        from jarvis import briefing as briefing_module, session_log
+        from kareem import briefing as briefing_module, session_log
         if not session_log.current_session_materialized():
             text = briefing_module.build_briefing()
             if text and not session_log.current_session_materialized():
@@ -405,7 +405,7 @@ def main():
     # --- system tray (optional, degrades gracefully) ---
     if getattr(config, "TRAY_ICON_ENABLED", True):
         try:
-            from jarvis.tray import start_tray_icon
+            from kareem.tray import start_tray_icon
             if not start_tray_icon(launch_cmd):
                 print("Tray icon unavailable (pystray/Pillow not usable) — "
                       "Kareem keeps running without one.")
@@ -484,7 +484,7 @@ def main():
 
             on_sentence = say_sentence if streamer else None
             if on_sentence and voice and voice.wakeword:
-                voice.wakeword.pause()  # don't let Jarvis hear itself
+                voice.wakeword.pause()  # don't let Kareem hear itself
 
             try:
                 with agent_lock:

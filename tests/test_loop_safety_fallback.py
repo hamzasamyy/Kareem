@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from jarvis.brain import (
+from kareem.brain import (
     MAX_TOOL_ROUNDS,
     ClaudeBrain,
     HostedBrain,

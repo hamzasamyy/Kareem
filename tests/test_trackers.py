@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta
 
-from jarvis import trackers
+from kareem import trackers
 
 
 class ParseDueTests(unittest.TestCase):
@@ -23,7 +23,7 @@ class ParseDueTests(unittest.TestCase):
         self.assertEqual((parsed.hour, parsed.minute), (9, 0))
 
     def test_next_weekday_with_time_reproduces_reported_bug(self):
-        # This is the exact phrase from the reported crash: Jarvis resolved
+        # This is the exact phrase from the reported crash: Kareem resolved
         # it correctly in conversation but the raw phrase sent to the tool
         # was rejected because parse_due() didn't understand weekday names.
         result = trackers.parse_due("next Thursday 12am")

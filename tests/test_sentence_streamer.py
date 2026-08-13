@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from jarvis.voice.tts import SentenceStreamer
+from kareem.voice.tts import SentenceStreamer
 
 
 class _SlowSpeaker:

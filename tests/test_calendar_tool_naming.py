@@ -1,7 +1,7 @@
 import unittest
 
-from jarvis import tool_routing, tools
-from jarvis.agent import _CONFIRMATION_CAPABLE_TOOLS
+from kareem import tool_routing, tools
+from kareem.agent import _CONFIRMATION_CAPABLE_TOOLS
 
 
 class CalendarToolNamingTests(unittest.TestCase):
@@ -12,7 +12,7 @@ class CalendarToolNamingTests(unittest.TestCase):
 
     Audit: grepped the whole repo plus every retained session log for the
     literal string 'calendar_create_event' — zero matches anywhere. There is
-    no hardcoded wrong name in this codebase; jarvis/guc/sync.py's
+    no hardcoded wrong name in this codebase; kareem/guc/sync.py's
     `_create_calendar_event` is a private, non-@register'd, non-LLM-facing
     helper (an internal caller of the Calendar API, not a tool a model can
     ever see or call — see that module's own docstring), so its
@@ -20,12 +20,12 @@ class CalendarToolNamingTests(unittest.TestCase):
     bug #1: calendar tools were excluded from tools= by routing, so a model
     calling the "obvious" calendar-add tool had nothing real to reference
     and guessed a plausible-sounding name blind. Fixing #1 (calendar tools
-    now always-on in jarvis/tool_routing.py's "core" category) means every
+    now always-on in kareem/tool_routing.py's "core" category) means every
     brain — hosted AND the Ollama fallback, which is handed the exact same
     tools= list — always sees the one real name now.
 
     These tests pin the actual canonical names so any future drift between
-    jarvis/tools/calendar.py's @register'd names and the places that
+    kareem/tools/calendar.py's @register'd names and the places that
     reference them by string (tool_routing.py, agent.py) fails loudly
     instead of silently reintroducing this bug.
     """

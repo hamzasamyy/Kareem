@@ -1,6 +1,5 @@
 .env
-jarvis.log
-jarvis_background.log
+*.log
 __pycache__/
 *.pyc
 .venv/
@@ -11,6 +10,6 @@ credentials.json
 token.json
 
 # Large TTS voice-model binaries — downloaded per machine (see README), kept out of the code-only backup
-jarvis/voice/models/
+kareem/voice/models/
 # graphify knowledge-graph output/cache — generated, not source
 graphify-out/

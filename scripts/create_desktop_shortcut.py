@@ -1,4 +1,4 @@
-"""Create shortcuts that launch Jarvis silently in the background.
+"""Create shortcuts that launch Kareem silently in the background.
 
 Usage:
   python scripts/create_desktop_shortcut.py
@@ -38,7 +38,7 @@ def _create_shortcut(shortcut_path: Path) -> bool:
         f"$Shortcut.TargetPath = {_ps_string(PYTHONW)}",
         f"$Shortcut.Arguments = {_ps_string(f'\"{main_py}\" --background')}",
         f"$Shortcut.WorkingDirectory = {_ps_string(PROJECT_ROOT)}",
-        '$Shortcut.Description = "Start Jarvis (background, no console window)"',
+        '$Shortcut.Description = "Start Kareem (background, no console window)"',
         "$Shortcut.Save()",
     ])
     result = subprocess.run(
@@ -55,14 +55,14 @@ def _create_shortcut(shortcut_path: Path) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create Jarvis background-launch shortcuts. With no flag, "
+        description="Create Kareem background-launch shortcuts. With no flag, "
                     "a Desktop shortcut is created."
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--autostart", action="store_true",
-                       help="start Jarvis automatically at Windows login")
+                       help="start Kareem automatically at Windows login")
     group.add_argument("--remove-autostart", action="store_true",
-                       help="remove Jarvis from Windows Startup")
+                       help="remove Kareem from Windows Startup")
     args = parser.parse_args()
 
     appdata = os.environ.get("APPDATA")
@@ -70,14 +70,14 @@ def main():
         print("Couldn't find the Windows APPDATA folder.")
         sys.exit(1)
     startup_shortcut = (Path(appdata) / "Microsoft" / "Windows" / "Start Menu" /
-                        "Programs" / "Startup" / "Jarvis.lnk")
+                        "Programs" / "Startup" / "Kareem.lnk")
 
     if args.remove_autostart:
         if startup_shortcut.exists():
             startup_shortcut.unlink()
             print(f"Removed: {startup_shortcut}")
         else:
-            print("Jarvis autostart was already disabled.")
+            print("Kareem autostart was already disabled.")
         return
 
     if not PYTHONW.exists():
@@ -86,13 +86,13 @@ def main():
         sys.exit(1)
 
     shortcut_path = (startup_shortcut if args.autostart
-                     else _desktop_dir() / "Jarvis.lnk")
+                     else _desktop_dir() / "Kareem.lnk")
     if not _create_shortcut(shortcut_path):
         sys.exit(1)
     if args.autostart:
-        print("Jarvis will now start silently when you sign in to Windows.")
+        print("Kareem will now start silently when you sign in to Windows.")
     else:
-        print("Double-click it any time to start Jarvis in the background.")
+        print("Double-click it any time to start Kareem in the background.")
 
 
 if __name__ == "__main__":

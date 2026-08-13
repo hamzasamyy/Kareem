@@ -1,6 +1,6 @@
 import unittest
 
-from jarvis import tool_routing
+from kareem import tool_routing
 
 
 class ToolRoutingTests(unittest.TestCase):
@@ -40,7 +40,7 @@ class ToolRoutingTests(unittest.TestCase):
         # Reproduces the reported hallucination bug: this exact phrasing
         # ("the world cup finished now, who won and what was the score")
         # hits none of the old "web" category keywords (search/google/
-        # news/weather/...), so web_search was silently excluded and Jarvis
+        # news/weather/...), so web_search was silently excluded and Kareem
         # answered from stale training data instead of searching.
         specs = [{"name": "navigate_app"}, {"name": "web_search"}, {"name": "fetch_page"}]
         filtered = tool_routing.filter_tool_specs(
