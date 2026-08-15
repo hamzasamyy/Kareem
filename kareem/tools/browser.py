@@ -191,7 +191,13 @@ def _find_locator(page, description: str, prefer: str = "any"):
         "site name ('gmail', 'youtube', 'github'). Reuses the same browser "
         "tab across calls, so a later browser_click/browser_type/browser_read "
         "acts on whatever page this navigated to. Read-only/navigation, no "
-        "confirmation needed."
+        "confirmation needed. "
+        "This opens a real, visible browser window and is slow — NOT for "
+        "a plain 'look something up and read it' task (a fact, a score, an "
+        "article): use web_search + fetch_page for that instead, which is "
+        "much faster and has no visible window. Reserve browser_open for "
+        "when the task genuinely needs interaction on the page afterward "
+        "(clicking, typing, a login flow) or content fetch_page can't read."
     ),
     "parameters": {
         "type": "object",

@@ -266,8 +266,17 @@ class Agent:
         args_summary = ", ".join(f"{k}={v!r}" for k, v in args.items())
         print(f"  [tool] {name}({args_summary})")
         self._notify_tool("start", name, args_summary)
+        # TEMP timing instrumentation (search-latency diagnosis, see task
+        # report): actual wall-clock time for this ONE tool call's real work
+        # (the network call itself for web_search/fetch_page), independent
+        # of whether it ran concurrently with others in the same round — see
+        # brain.py's "[tools]" line for the round's overall wall-clock.
+        import time
+        start = time.perf_counter()
         try:
             result = self._cap_tool_result(str(func(**args)))
+            elapsed = time.perf_counter() - start
+            print(f"  [tool] {name} finished in {elapsed:.2f}s")
             self._notify_tool("end", name, result)
             session_log.log_event("tool_result", name=name, result=result, ok=True)
             return result
@@ -410,6 +419,12 @@ class Agent:
         relevant_tools = tool_routing.select_tools_for_message(
             tools.TOOL_SPECS, user_text, config.BRAIN
         )
+        # TEMP timing instrumentation (search-latency diagnosis, see task
+        # report): total wall-clock for this whole turn, for comparison
+        # against the [groq]/[tool] breakdown lines brain.py/this file print
+        # during the call below.
+        import time
+        turn_start = time.perf_counter()
         try:
             reply = self.brain.chat(
                 self.history,
@@ -432,6 +447,8 @@ class Agent:
             raise
         finally:
             self._on_tool = None
+        turn_elapsed = time.perf_counter() - turn_start
+        print(f"[turn] total wall-clock: {turn_elapsed:.2f}s")
         self.history.append({"role": "assistant", "content": reply})
         session_log.log_event("assistant_reply", text=reply)
         self._trim_history_if_needed()

@@ -585,6 +585,7 @@ class HostedBrain:
     def _chat_streaming(self, messages, tools, execute_tool, on_sentence,
                         on_token=None, on_tool_failure=None) -> str:
         import json
+        import time
         import uuid
 
         # emit() mirrors exactly what gets live-printed to the console, so the
@@ -595,7 +596,17 @@ class HostedBrain:
         if tools:
             kwargs["tools"] = self._to_openai_tools(tools)
 
+        # TEMP timing instrumentation (search-latency diagnosis, see task
+        # report): wall-clock time for each Groq round-trip — from issuing
+        # the request through consuming the full streamed response, since
+        # with stream=True the create() call itself returns almost
+        # instantly and the real network time is spent iterating chunks
+        # below, not in the call. round_times feeds the per-turn summary
+        # printed at each return point.
+        round_times = []
+
         for round_no in range(MAX_TOOL_ROUNDS):
+            round_start = time.perf_counter()
             try:
                 stream = self._create_with_retry(messages, kwargs)
             except RuntimeError as e:
@@ -666,6 +677,11 @@ class HostedBrain:
             tail = think.flush()
             full_text = strip_think("".join(content_parts))
 
+            round_elapsed = time.perf_counter() - round_start
+            round_times.append(round_elapsed)
+            print(f"  [groq] round {round_no + 1}: {round_elapsed:.2f}s "
+                  f"({'tool call' if tool_acc else 'final answer'})")
+
             # ---- tool round: run the tools (safety gate included) and loop ----
             if tool_acc and execute_tool is not None:
                 calls = [tool_acc[i] for i in sorted(tool_acc)]
@@ -697,7 +713,13 @@ class HostedBrain:
                               f"treating as empty — raw payload: {c['arguments']!r})")
                         args = {}
                     parsed_calls.append((c["name"], args))
-                for c, result in zip(calls, execute_tool(parsed_calls)):
+                tools_start = time.perf_counter()
+                results = execute_tool(parsed_calls)
+                tools_elapsed = time.perf_counter() - tools_start
+                names = ", ".join(c["name"] for c in calls)
+                print(f"  [tools] {names}: {tools_elapsed:.2f}s wall-clock "
+                      f"for this round's {len(calls)} call(s)")
+                for c, result in zip(calls, results):
                     messages.append({
                         "role": "tool",
                         "tool_call_id": c["id"],
@@ -722,22 +744,35 @@ class HostedBrain:
                 emit(leftover)
                 sentences.flush()
                 self.last_streamed = True
+            print(f"  [groq] {len(round_times)} round-trip(s) totaling "
+                  f"{sum(round_times):.2f}s (this turn's Groq time only, "
+                  "excludes tool wall-clock — see [tools] lines above)")
             return full_text
 
         if on_tool_failure:
             on_tool_failure("tool_call", "exceeded the maximum tool-calling rounds")
+        print(f"  [groq] {len(round_times)} round-trip(s) totaling "
+              f"{sum(round_times):.2f}s before hitting MAX_TOOL_ROUNDS")
         return _loop_safety_message(messages)
 
     # ------------------------------------------------------------- blocking
 
     def _chat_blocking(self, messages, tools, execute_tool, on_tool_failure=None) -> str:
         import json
+        import time
 
         kwargs = {}
         if tools:
             kwargs["tools"] = self._to_openai_tools(tools)
 
+        # TEMP timing instrumentation (search-latency diagnosis, see task
+        # report) — same purpose as _chat_streaming's round_times, but here
+        # _create_with_retry's return already IS the full round-trip (no
+        # separate chunk-consuming loop needed, unlike streaming).
+        round_times = []
+
         for round_no in range(MAX_TOOL_ROUNDS):
+            round_start = time.perf_counter()
             try:
                 response = self._create_with_retry(messages, kwargs)
             except RuntimeError as e:
@@ -759,7 +794,15 @@ class HostedBrain:
             msg = response.choices[0].message
             tool_calls = msg.tool_calls or []
 
+            round_elapsed = time.perf_counter() - round_start
+            round_times.append(round_elapsed)
+            print(f"  [groq] round {round_no + 1}: {round_elapsed:.2f}s "
+                  f"({'tool call' if tool_calls else 'final answer'})")
+
             if not tool_calls or execute_tool is None:
+                print(f"  [groq] {len(round_times)} round-trip(s) totaling "
+                      f"{sum(round_times):.2f}s (this turn's Groq time only, "
+                      "excludes tool wall-clock — see [tools] lines above)")
                 return strip_think(msg.content or "")
 
             # The model wants to use tools: record its request, run them
@@ -775,7 +818,13 @@ class HostedBrain:
                           f"treating as empty — raw payload: {call.function.arguments!r})")
                     args = {}
                 parsed_calls.append((call.function.name, args))
-            for call, result in zip(tool_calls, execute_tool(parsed_calls)):
+            tools_start = time.perf_counter()
+            results = execute_tool(parsed_calls)
+            tools_elapsed = time.perf_counter() - tools_start
+            names = ", ".join(call.function.name for call in tool_calls)
+            print(f"  [tools] {names}: {tools_elapsed:.2f}s wall-clock "
+                  f"for this round's {len(tool_calls)} call(s)")
+            for call, result in zip(tool_calls, results):
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
@@ -784,6 +833,8 @@ class HostedBrain:
 
         if on_tool_failure:
             on_tool_failure("tool_call", "exceeded the maximum tool-calling rounds")
+        print(f"  [groq] {len(round_times)} round-trip(s) totaling "
+              f"{sum(round_times):.2f}s before hitting MAX_TOOL_ROUNDS")
         return _loop_safety_message(messages)
 
 
