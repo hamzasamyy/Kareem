@@ -11,6 +11,24 @@ from kareem.safety import log_action
 KEEP_RECENT_TURNS = 12
 TRIM_TRIGGER_TURNS = KEEP_RECENT_TURNS + 6
 
+# Hard cap on how much text ANY single tool result can add to the
+# conversation, applied in _execute_tool below regardless of which tool
+# produced it. Root cause of the "who won the last F1 race?" failure: a
+# single clean web_search -> fetch_page round on a Wikipedia page (already
+# soft-truncated to 4000 chars there, ~1000-1300 tokens) landed on top of
+# the full tool-schema + conversation-history overhead already in the
+# request and pushed a single Groq call to 8750 tokens against its 8000
+# tokens/minute limit — an outright rejection, not a slow burn from
+# multiple searches (that's the separate redundancy/cascade fix in
+# web_search's tool description). A per-tool truncation like fetch_page's
+# is easy to miss adding to some future tool, or to still be too generous
+# once schema/history overhead grows — this backstop applies AFTER any
+# tool-specific truncation, to every tool's output, so no single result can
+# blow the budget on its own no matter where it came from.
+# ~1800 chars is roughly 450 tokens at a ~4-chars/token estimate, leaving
+# headroom under an 8000 token/minute cap even next to a full tool schema.
+MAX_TOOL_RESULT_CHARS = 1800
+
 # Tool names that can, depending on their arguments, call
 # safety.guard()/confirm() (exhaustively verified via `grep "guard(" -r
 # kareem/tools/` at the time this was written). A batch of same-round tool
@@ -210,6 +228,16 @@ class Agent:
         self._notify_tool("end", name, detail, ok=False)
         session_log.log_event("tool_result", name=name, result=detail, ok=False)
 
+    @staticmethod
+    def _cap_tool_result(result: str) -> str:
+        """Hard-cap any tool result to MAX_TOOL_RESULT_CHARS before it's
+        allowed into the conversation — see that constant's comment for why.
+        Applies uniformly to every tool's output, on top of whatever
+        tool-specific truncation (if any) already ran."""
+        if len(result) <= MAX_TOOL_RESULT_CHARS:
+            return result
+        return result[:MAX_TOOL_RESULT_CHARS] + " …[truncated]"
+
     def _execute_tool(self, name: str, args: dict) -> str:
         """Runs one tool call from the model. Never raises — the model gets
         a readable error string instead, so one bad call can't crash Kareem."""
@@ -239,7 +267,7 @@ class Agent:
         print(f"  [tool] {name}({args_summary})")
         self._notify_tool("start", name, args_summary)
         try:
-            result = str(func(**args))
+            result = self._cap_tool_result(str(func(**args)))
             self._notify_tool("end", name, result)
             session_log.log_event("tool_result", name=name, result=result, ok=True)
             return result

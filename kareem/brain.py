@@ -315,6 +315,45 @@ class OllamaBrain:
         return _loop_safety_message(ollama_messages)
 
 
+def _is_size_or_rate_limit_error(exc) -> bool:
+    """True for a rate-limit (429) or request-too-large failure — the class
+    of provider rejection a single oversized request (or a burst of
+    requests) can trigger. Detected by exception type first (an openai
+    RateLimitError always counts), then by keyword as a fallback since a
+    request-too-large rejection can arrive as a different exception/status
+    depending on provider (e.g. a 400 instead of a 429)."""
+    from openai import RateLimitError
+
+    if isinstance(exc, RateLimitError):
+        return True
+    text = str(exc).lower()
+    keywords = (
+        "rate limit", "rate_limit_exceeded", "tokens per minute",
+        "requests per minute", "request too large", "context length",
+        "context_length_exceeded", "too many tokens",
+    )
+    return any(keyword in text for keyword in keywords)
+
+
+def _size_or_rate_limit_message(exc) -> str:
+    """User-safe text for a rate-limit/request-too-large failure.
+
+    Deliberately NOT built from user_safe_error(exc): that function passes
+    through any "clean" provider prose unchanged (it only strips a
+    '{...}'/'<...>' blob), and a Groq 429 body IS clean prose that also
+    happens to name the organization id, service tier, exact token counts,
+    and a link to upgrade billing — none of which belongs in a
+    personal-assistant error message. This is a fixed, generic string
+    instead, independent of whatever the provider actually said.
+    `exc` is accepted (but unused) to keep both call sites symmetric with
+    user_safe_error's signature and to leave room for the message to vary
+    by cause later without touching the call sites again."""
+    return (
+        "That question needed more information than I could process at "
+        "once — try asking something more specific."
+    )
+
+
 class HostedBrain:
     """Talks to a free hosted cloud model over any OpenAI-compatible API
     (OpenRouter, Nous portal, NVIDIA NIM, Groq, Hugging Face router, …).
@@ -378,7 +417,21 @@ class HostedBrain:
 
     def _create_with_retry(self, messages, kwargs):
         """One API call, retrying politely if the free tier is rate-limited.
-        Raises RuntimeError with a plain-English message on real failures."""
+        Raises RuntimeError with a plain-English message on real failures.
+
+        Rate-limit/request-too-large errors get their own clean, generic
+        message (see _size_or_rate_limit_message below) instead of
+        user_safe_error's normal pass-through: reproduced bug — a single
+        large tool result (a full Wikipedia page via fetch_page) pushed one
+        Groq request over its tokens-per-minute limit, and the provider's
+        429 body is otherwise "clean" prose (no '{'/'<' for user_safe_error
+        to strip) that happens to contain the org id, service tier, exact
+        token counts, and a billing upgrade link — none of which belongs in
+        a personal-assistant error message. The `# regardless of source`
+        token-count cap in kareem/agent.py (MAX_TOOL_RESULT_CHARS) is the
+        fix that stops this from being hit in the first place; this is the
+        second, independent half — what the user sees if it (or some other
+        cause) still trips a 429 anyway."""
         import time
 
         from openai import RateLimitError
@@ -419,18 +472,19 @@ class HostedBrain:
                         "Switch HOSTED_MODEL in kareem/config.py to a vision-capable "
                         "model (see the comment there) and try again."
                     ) from e
+                if _is_size_or_rate_limit_error(e):
+                    # A 400 "request too large" (rather than a 429) can land
+                    # here instead of the RateLimitError branch above,
+                    # depending on provider — same clean message either way,
+                    # and no misleading "check internet/key" hint.
+                    raise RuntimeError(_size_or_rate_limit_message(e)) from e
                 raise RuntimeError(
                     f"The hosted model didn't answer ({user_safe_error(e)}).\n"
                     "This usually means no internet, or a wrong key/model in "
                     ".env / kareem/config.py."
                 )
 
-        raise RuntimeError(
-            f"The free hosted model is rate-limited right now "
-            f"({user_safe_error(last_error)}).\n"
-            "Wait a minute and try again, or switch HOSTED_MODEL in kareem/config.py "
-            "to another free model (see the comments there)."
-        )
+        raise RuntimeError(_size_or_rate_limit_message(last_error))
 
     @staticmethod
     def _to_ollama_compatible_messages(messages: list[dict]) -> list[dict]:
