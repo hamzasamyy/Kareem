@@ -101,7 +101,8 @@ plate this week?").
 
 ## Three ways to talk to it
 
-1. **The website (the main way)** — `python main.py` also starts a local web
+1. **The website (the main way)** — running Kareem (`run_kareem`, see
+   [Part 2](#part-2--how-to-run-it-every-day) below) also starts a local web
    interface at **http://127.0.0.1:8000**. Saying **"hey jarvis"** or pressing
    **Ctrl+Alt+J** opens/focuses it in your browser. It has streaming replies,
    a live feed of what Kareem is doing, Confirm/Cancel buttons for risky
@@ -127,16 +128,22 @@ All three share ONE conversation — you can mix them freely.
 
 1. **Python 3.11+** — from https://python.org/downloads/ — **tick "Add
    Python to PATH"** during install. Check: `python --version`
-2. **Ollama** — from https://ollama.com, then run: `ollama pull qwen2.5:7b`
-   (~5 GB one-time download). *Less than 16 GB RAM? Use `ollama pull
-   llama3.2:3b` instead and set `OLLAMA_MODEL = "llama3.2:3b"` in
-   `kareem/config.py`.*
-3. **ffmpeg** (voice only) — run `winget install ffmpeg`, then reopen the terminal.
-4. **Python packages** — in this folder run: `pip install -r requirements.txt`
-5. **Playwright's browser** (needed for browser control and the GUC
+2. **Python packages** — in this folder run: `pip install -r requirements.txt`
+3. **Playwright's browser** (needed for browser control and the GUC
    integration) — run: `playwright install chromium`
-6. Check everything: `python main.py --check` — fix anything marked `[FAIL]`
-   using the hint it prints.
+4. **ffmpeg** (voice only) — run `winget install ffmpeg`, then reopen the terminal.
+5. **A free Groq key**, for the default hosted brain (more on this in
+   [The fast free brain](#the-fast-free-brain-the-default) below) — sign up
+   at https://console.groq.com (free, no card), copy `.env.example` to `.env`
+   in this folder, and paste the key in as `HOSTED_API_KEY`.
+6. Check everything: `run_kareem --check` (or `python main.py --check`) —
+   fix anything marked `[FAIL]` using the hint it prints.
+
+Prefer everything to stay fully offline and private instead? Skip step 5 —
+see [Switching back to fully-local](#switching-back-to-fully-local-offline-private),
+no Groq key needed at all that way. (Even with the hosted brain, installing
+[Ollama](https://ollama.com) is worthwhile as a fallback: Kareem automatically
+uses it if the hosted brain is ever unreachable — entirely optional.)
 
 ### Kokoro voice (the default)
 
@@ -170,20 +177,26 @@ want to use it instead of Kokoro.
 
 ## Part 2 — How to run it every day
 
-1. Make sure Ollama is running (it starts with Windows by default; if unsure,
-   just open the Ollama app once).
-2. Open a terminal in this folder (the one containing `main.py`).
+1. Open a terminal in this folder (the one containing `main.py`).
    Tip: in File Explorer, right-click inside the folder → "Open in Terminal".
-3. Run:
+2. Run:
    ```
-   python main.py
+   run_kareem
    ```
-4. Talk (say "hey jarvis" or press Ctrl+Alt+J) or type. Type `exit` to quit.
+   (double-click `run_kareem.bat`, or type `run_kareem` in the terminal).
+   This always uses the same Python that has Kareem's packages installed —
+   handy if your PC has more than one. Plain `python main.py` also works, as
+   long as it's the same interpreter you ran `pip install` with.
+3. Talk (say "hey jarvis" or press Ctrl+Alt+J) or type. Type `exit` to quit.
 
-Text-only mode (skip all voice features): `python main.py --no-voice`
+Text-only mode (skip all voice features): `run_kareem --no-voice`
 
-If anything seems broken, run `python main.py --check` first — it reports
-what's wrong in plain English.
+If anything seems broken, run `run_kareem --check` first — it reports what's
+wrong in plain English.
+
+Using the offline Ollama brain (`BRAIN = "ollama"`)? Make sure Ollama is
+running first — it starts with Windows by default; if unsure, just open the
+Ollama app once.
 
 ---
 
@@ -216,13 +229,28 @@ To turn automatic startup off again, run:
 python scripts/create_desktop_shortcut.py --remove-autostart
 ```
 
+### Simple mode (one sitting, browser-only)
+
+Prefer starting Kareem only when you need it, with no tray icon to remember
+to quit later? Run:
+
+```
+python scripts/create_desktop_shortcut.py --simple
+```
+
+This creates a separate, distinctly-named **Kareem (Simple Mode)** Desktop
+shortcut. Double-click it and Kareem opens straight in your browser; close
+that browser tab and Kareem shuts itself down. (A short grace period tells a
+page refresh apart from an actual close, so refreshing doesn't quit it.)
+
 ---
 
 ## Settings you can change
 
 Open `kareem/config.py` in Notepad — every setting is explained in comments:
 
-- `BRAIN` — `"ollama"` (free, local, default) or `"claude"` (paid API)
+- `BRAIN` — `"hosted"` (free cloud, default), `"ollama"` (free, local,
+  offline), or `"claude"` (paid API)
 - `OLLAMA_MODEL` — which local model to use
 - `VOICE_ENABLED` — master switch for all voice features
 - `TTS_ENGINE`, `TTS_VOICE`, `TTS_SPEED` — speaking voice and speed
@@ -250,7 +278,7 @@ with `STREAMING = False` in config). One-time setup:
    ```
    HOSTED_API_KEY=gsk_...your-key...
    ```
-3. Run `python main.py --check` — it should say the key was found.
+3. Run `run_kareem --check` — it should say the key was found.
 
 **How the model id works:** in `kareem/config.py`, `HOSTED_BASE_URL` picks
 the provider and `HOSTED_MODEL` picks the model on that provider. The config
@@ -301,12 +329,22 @@ Kareem doesn't automatically expire or delete any of this — it's yours to
 manage. Any of these files/folders are recreated automatically the next
 time they're needed, so deleting them is always safe.
 
+---
+
 ## Switching back to fully-local (offline, private)
 
-Open `kareem/config.py` and change one line:
-```python
-BRAIN = "ollama"
-```
+1. Install [Ollama](https://ollama.com), then run:
+   ```
+   ollama pull qwen2.5:3b
+   ```
+   (a one-time download; matches the default `OLLAMA_MODEL` below). *Less
+   than 16 GB RAM? Use `ollama pull llama3.2:3b` instead and set
+   `OLLAMA_MODEL = "llama3.2:3b"` in `kareem/config.py`.*
+2. Open `kareem/config.py` and change one line:
+   ```python
+   BRAIN = "ollama"
+   ```
+
 That's the whole switch — same tools, same safety gate, no internet needed,
 nothing leaves your PC. Change it back to `"hosted"` anytime.
 
@@ -318,12 +356,13 @@ nothing leaves your PC. Change it back to `"hosted"` anytime.
 2. Get an API key from https://console.anthropic.com/settings/keys and put it
    in `.env`: `CLAUDE_API_KEY=sk-ant-…`
 3. In `kareem/config.py` set `BRAIN = "claude"`.
-4. Run `python main.py` as usual.
+4. Run `run_kareem` (or `python main.py`) as usual.
 
 Everything else — tools, safety confirmations, voice — works identically.
-Switch back anytime with `BRAIN = "ollama"`. Ollama is always free; Claude
-bills per use through your Anthropic account. Your key lives only in `.env`,
-which is never committed or shared.
+Switch back anytime with `BRAIN = "hosted"` (the default, also free) or
+`BRAIN = "ollama"` (fully offline, also free). Claude is the only one of the
+three that bills per use, through your Anthropic account. Your key lives
+only in `.env`, which is never committed or shared.
 
 ---
 
@@ -333,7 +372,8 @@ which is never committed or shared.
 Kareem/
   main.py                # entrypoint — run this
   requirements.txt       # Python packages
-  .env.example           # copy to .env only if using the Claude brain
+  .env.example           # copy to .env and add a key (Groq by default,
+                          # or Anthropic's if you switch to the Claude brain)
   kareem.log             # every action Kareem takes is recorded here
   kareem/
     config.py            # <-- the file you edit to change settings
@@ -354,11 +394,22 @@ Kareem/
 
 - **"python is not recognized"** — Python isn't on PATH. Reinstall with
   "Add Python to PATH" ticked, or reopen the terminal.
-- **"Couldn't reach Ollama"** — open the Ollama app so its background
-  service starts, then try again.
-- **"Model not downloaded"** — run `ollama pull qwen2.5:7b`.
-- **Replies are slow** — normal for a local model on CPU; first reply after
-  starting is slowest. A smaller model (`llama3.2:3b`) is faster.
+- **"Kareem can't start: its dependencies aren't installed in THIS Python"**
+  — your PC has more than one Python installed, and this one doesn't have
+  Kareem's packages. Run `run_kareem.bat` (or type `run_kareem` in this
+  folder) instead of a bare `python main.py` — it always finds the right
+  one. `run_kareem --check` gives the full diagnostic.
+
+**Using the default hosted brain (Groq):**
+- **"No HOSTED_API_KEY in .env"** — copy `.env.example` to `.env` and paste
+  in a key from https://console.groq.com (free, no card).
+- **Kareem says the hosted brain is unavailable and falls back** — Groq is
+  rate-limited or briefly unreachable; Kareem retries automatically and, if
+  Ollama is installed and running, answers with that instead in the
+  meantime. If it persists, check your usage/limits at
+  https://console.groq.com.
+
+**Voice (any brain):**
 - **Wake word doesn't trigger** — speak clearly, close to the mic; check
   Windows Settings → Privacy → Microphone allows desktop apps. If it never
   works on your hardware, use the hotkey — same result. You can also raise
@@ -369,6 +420,14 @@ Kareem/
   word and use the hotkey.
 - **First voice command is slow** — the speech-recognition model loads on
   first use; later commands are fast.
+
+**If you've switched to the offline Ollama brain (`BRAIN = "ollama"`):**
+- **"Couldn't reach Ollama"** — open the Ollama app so its background
+  service starts, then try again.
+- **"Model not downloaded"** — run `ollama pull qwen2.5:3b` (or whatever
+  `OLLAMA_MODEL` is set to in `kareem/config.py`).
+- **Replies are slow** — normal for a local model on CPU; first reply after
+  starting is slowest. A smaller model (`llama3.2:3b`) is faster.
 
 A note on the design: there is deliberately **no way to turn off
 confirmations** for destructive actions. The model can never delete, move,
