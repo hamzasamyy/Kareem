@@ -9,7 +9,11 @@ data/
 credentials.json
 token.json
 
-# Large TTS voice-model binaries — downloaded per machine (see README), kept out of the code-only backup
-kareem/voice/models/
+# Large TTS voice-model binaries — downloaded per machine (see README), kept out of the code-only backup.
+# (A plain "kareem/voice/models/" directory-exclusion would also block the
+# !hey_kareem.onnx re-include below — git won't look inside an ignored
+# directory at all — so this ignores each entry individually instead.)
+kareem/voice/models/*
+!kareem/voice/models/hey_kareem.onnx
 # graphify knowledge-graph output/cache — generated, not source
 graphify-out/
