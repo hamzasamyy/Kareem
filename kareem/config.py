@@ -168,7 +168,7 @@ GUC_CHECK_INTERVAL_MINUTES = 45
 # Set to False to use Kareem as a text-only chat in the console.
 VOICE_ENABLED = True
 
-# Wake word: say "hey jarvis" out loud to start talking (needs a microphone).
+# Wake word: say "hey kareem" out loud to start talking (needs a microphone).
 # If the wake-word engine fails to start on your PC, Kareem automatically
 # falls back to hotkey-only and tells you — it will not crash.
 WAKE_WORD_ENABLED = True
@@ -258,7 +258,7 @@ TTS_SPEED = 1.0
 # WEB INTERFACE
 # ============================================================================
 
-# When you say "hey jarvis" or press the hotkey, Kareem opens (or focuses)
+# When you say "hey kareem" or press the hotkey, Kareem opens (or focuses)
 # the web interface at http://127.0.0.1:8000 in your browser, and the
 # conversation continues there. Set to False to get the old behavior back
 # (talk out loud immediately, replies spoken from the desktop app).

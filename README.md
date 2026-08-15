@@ -103,7 +103,7 @@ plate this week?").
 
 1. **The website (the main way)** — running Kareem (`run_kareem`, see
    [Part 2](#part-2--how-to-run-it-every-day) below) also starts a local web
-   interface at **http://127.0.0.1:8000**. Saying **"hey jarvis"** or pressing
+   interface at **http://127.0.0.1:8000**. Saying **"hey kareem"** or pressing
    **Ctrl+Alt+J** opens/focuses it in your browser. It has streaming replies,
    a live feed of what Kareem is doing, Confirm/Cancel buttons for risky
    actions, and a mic button (browser voice — best in Chrome/Edge; replies to
@@ -173,6 +173,22 @@ python -m piper.download_voices en_US-lessac-medium --data-dir kareem/voice/mode
 Restart Kareem and set `TTS_ENGINE = "piper"` in `kareem/config.py` if you
 want to use it instead of Kokoro.
 
+### Wake word ("hey kareem")
+
+The wake-word model is a custom-trained `hey_kareem.onnx` (openWakeWord),
+kept out of git like the other voice model binaries above — a fresh clone
+needs it placed at `kareem/voice/models/hey_kareem.onnx`. Regenerate it any
+time with:
+```
+python train_kareem.py
+```
+That script synthesizes training audio for the phrase and trains/exports
+the ONNX model to the workspace; move the result into
+`kareem/voice/models/hey_kareem.onnx`. If detection seems unreliable
+(missed wake-ups or false triggers), adjust `THRESHOLD` in
+`kareem/voice/wakeword.py` (higher = fewer false triggers but easier to
+miss; lower = the opposite).
+
 ---
 
 ## Part 2 — How to run it every day
@@ -187,7 +203,7 @@ want to use it instead of Kokoro.
    This always uses the same Python that has Kareem's packages installed —
    handy if your PC has more than one. Plain `python main.py` also works, as
    long as it's the same interpreter you ran `pip install` with.
-3. Talk (say "hey jarvis" or press Ctrl+Alt+J) or type. Type `exit` to quit.
+3. Talk (say "hey kareem" or press Ctrl+Alt+J) or type. Type `exit` to quit.
 
 Text-only mode (skip all voice features): `run_kareem --no-voice`
 
@@ -213,7 +229,7 @@ Double-click that shortcut whenever you want to start Kareem silently. A small
 cyan tray icon shows that Kareem is running; right-click it to **Open Web UI**
 or **Quit**.
 
-Because this keeps Kareem running in the background, the **"hey jarvis"** wake
+Because this keeps Kareem running in the background, the **"hey kareem"** wake
 word now always has something listening — if it seemed not to work before,
 that was because nothing was running.
 
@@ -254,7 +270,7 @@ Open `kareem/config.py` in Notepad — every setting is explained in comments:
 - `OLLAMA_MODEL` — which local model to use
 - `VOICE_ENABLED` — master switch for all voice features
 - `TTS_ENGINE`, `TTS_VOICE`, `TTS_SPEED` — speaking voice and speed
-- `WAKE_WORD_ENABLED` — turn "hey jarvis" listening on/off
+- `WAKE_WORD_ENABLED` — turn "hey kareem" listening on/off
 - `HOTKEY` — the push-to-talk key combo
 - `STT_MODEL` — speech recognition size: `"base"` (fast) or `"small"` (more accurate)
 

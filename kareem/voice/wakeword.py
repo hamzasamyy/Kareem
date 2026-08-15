@@ -1,15 +1,26 @@
 """
-Wake-word detection using openWakeWord's "hey_jarvis" model, listening in
-the background. This is the most finicky part of the stack on Windows — if
+Wake-word detection using a custom-trained "hey_kareem" openWakeWord model
+(kareem/voice/models/hey_kareem.onnx, trained via train_kareem.py — see
+that script and README.md's wake-word section), listening in the
+background. This is the most finicky part of the stack on Windows — if
 anything fails to initialize, start() returns False and Kareem falls back
 to hotkey-only activation instead of crashing.
 """
 
+import pathlib
 import threading
 
 SAMPLE_RATE = 16000
 CHUNK_SAMPLES = 1280  # 80 ms — the chunk size openWakeWord expects
 THRESHOLD = 0.5       # detection confidence 0..1; raise if it false-triggers
+
+WAKE_MODEL_NAME = "hey_kareem"
+# Resolved relative to this file, not the process's cwd, so it works
+# regardless of where Kareem is launched from. Git-ignored like the other
+# large voice model binaries (see .gitignore) — a fresh clone needs this
+# file placed here, either copied in or regenerated with
+# `python train_kareem.py`.
+WAKE_MODEL_PATH = pathlib.Path(__file__).parent / "models" / f"{WAKE_MODEL_NAME}.onnx"
 
 
 class WakeWordListener:
@@ -25,14 +36,26 @@ class WakeWordListener:
     def start(self) -> bool:
         """Returns True if the listener is running, False if it couldn't start
         (reason is printed, never raised)."""
+        if not WAKE_MODEL_PATH.exists():
+            print(
+                f"Note: wake word disabled ({WAKE_MODEL_PATH} not found — "
+                "copy hey_kareem.onnx there, or regenerate it with "
+                "`python train_kareem.py`). Use the hotkey instead."
+            )
+            return False
         try:
             import openwakeword
+
+            # One-time download of the shared melspectrogram/embedding/VAD
+            # models openWakeWord needs regardless of which wakeword model is
+            # used (cached afterwards, works offline then) — NOT the
+            # wakeword model itself, which is our own local hey_kareem.onnx,
+            # not one of openWakeWord's pretrained models to fetch by name.
+            openwakeword.utils.download_models()
             from openwakeword.model import Model
 
-            # One-time model download (cached afterwards, works offline then).
-            openwakeword.utils.download_models(model_names=["hey_jarvis"])
             self._model = Model(
-                wakeword_models=["hey_jarvis"],
+                wakeword_models=[str(WAKE_MODEL_PATH)],
                 inference_framework="onnx",
             )
         except Exception as e:
@@ -79,7 +102,7 @@ class WakeWordListener:
                     while not self._stop.is_set() and not self._paused.is_set():
                         chunk, _ = stream.read(CHUNK_SAMPLES)
                         scores = self._model.predict(chunk[:, 0])
-                        if scores.get("hey_jarvis", 0) >= THRESHOLD:
+                        if scores.get(WAKE_MODEL_NAME, 0) >= THRESHOLD:
                             self._model.reset()
                             self.on_wake()
                 # stream is closed here (device released) whenever we pause/stop

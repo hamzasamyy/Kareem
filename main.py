@@ -390,7 +390,7 @@ def main():
             from kareem.voice.controller import VoiceController
             voice = VoiceController(agent, agent_lock)
             if web_server is not None:
-                # "hey jarvis" / hotkey now opens the web UI (see WAKE_OPENS_WEB
+                # "hey kareem" / hotkey now opens the web UI (see WAKE_OPENS_WEB
                 # in kareem/config.py to restore the old talk-out-loud behavior)
                 voice.open_web = web_server.open_page
             voice.start()

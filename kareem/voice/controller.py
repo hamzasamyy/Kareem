@@ -96,7 +96,7 @@ class VoiceController:
                 from kareem.voice.wakeword import WakeWordListener
                 self.wakeword = WakeWordListener(on_wake=self._on_trigger)
                 if self.wakeword.start():
-                    print('Wake word ready: say "hey jarvis" to talk.')
+                    print('Wake word ready: say "hey kareem" to talk.')
                     listening = True
                 else:
                     self.wakeword = None
