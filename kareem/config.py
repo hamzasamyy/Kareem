@@ -178,14 +178,17 @@ WAKE_WORD_ENABLED = True
 HOTKEY = "ctrl+alt+j"
 
 # Speech-to-text model (faster-whisper). Bigger = more accurate but slower:
-#   "tiny.en"  = fastest, least accurate
-#   "base.en"  = the default — clearly more accurate than tiny for ~2x the
-#                work, still near-instant on CPU for short commands
+#   "tiny.en"  = the default — fastest, least accurate
+#   "base.en"  = clearly more accurate than tiny for ~2x the work, still
+#                near-instant on CPU for short commands
 #   "small.en" = noticeably more accurate again, ~5-6x tiny (use if your PC
 #                has the headroom and accuracy matters more than speed)
 # The model is pre-warmed at startup, so a larger model doesn't slow down
-# your FIRST command. Switch back to "tiny.en" if replies ever feel laggy.
-STT_MODEL = "base.en"
+# your FIRST command. Switched back from "base.en" 2026-08-16 — that measured
+# a real, consistent ~2.1-2.3s decode-time tax on every voice turn (full-
+# pipeline latency diagnosis); go back to "base.en"/"small.en" if accuracy
+# ever feels like the bigger problem.
+STT_MODEL = "tiny.en"
 
 # How the speech model runs on the CPU. "int8" = fastest, minimal accuracy
 # cost. Alternative: "int8_float32" if you ever see garbled transcriptions.

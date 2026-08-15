@@ -161,6 +161,12 @@ class VoiceController:
         threading.Thread(target=self._handle_interaction, daemon=True).start()
 
     def _handle_interaction(self):
+        # TEMP timing instrumentation (full-pipeline latency diagnosis, see
+        # task report): wall-clock for the whole voice interaction, matching
+        # what the user actually experiences (trigger -> fully spoken reply)
+        # — the earlier diagnostic only ever measured agent.send() internals.
+        import time
+        interaction_start = time.perf_counter()
         try:
             # New default: the trigger opens/focuses the web UI and the
             # conversation continues in the browser. Set WAKE_OPENS_WEB =
@@ -177,8 +183,14 @@ class VoiceController:
                 self.wakeword.pause()
 
             print("\n[listening…]", flush=True)
+            greet_start = time.perf_counter()
             self._say("Yes?")
+            print(f"  [voice] 'Yes?' greeting (blocks before listening starts): "
+                  f"{time.perf_counter() - greet_start:.2f}s")
+            listen_start = time.perf_counter()
             text = self._listen_once()
+            print(f"  [voice] listen (record-until-silence + STT): "
+                  f"{time.perf_counter() - listen_start:.2f}s")
             if not text:
                 print("(didn't catch anything)")
                 self._say("Sorry, I didn't catch that.")
@@ -198,23 +210,34 @@ class VoiceController:
             # restore whatever was there before (mirroring the web server), so
             # a concurrent console/web turn can't have its confirmation routed
             # to voice, and voice can't clobber another loop's handler to None.
+            agent_send_start = time.perf_counter()
             with self.agent_lock:
                 previous_ask = safety.set_ask_fn(self._voice_confirm)
                 try:
                     reply = self.agent.send(text, on_sentence=on_sentence)
                 finally:
                     safety.set_ask_fn(previous_ask)
+            print(f"  [voice] agent.send (Groq + tools; may overlap with "
+                  f"in-progress speaking above via on_sentence): "
+                  f"{time.perf_counter() - agent_send_start:.2f}s")
 
             if not self.agent.last_streamed:
                 print(f"Kareem: {reply}\n")
 
+            speak_wait_start = time.perf_counter()
             if spoken["count"]:
                 self.streamer.wait()  # sentences were spoken while generating
+                print(f"  [voice] wait for in-progress speaking to finish: "
+                      f"{time.perf_counter() - speak_wait_start:.2f}s")
             else:
                 self._say(reply)
+                print(f"  [voice] speak full reply (not streamed sentence-by-"
+                      f"sentence): {time.perf_counter() - speak_wait_start:.2f}s")
         except Exception as e:
             print(f"(voice interaction failed: {e})")
         finally:
             if self.wakeword:
                 self.wakeword.resume()
             self._busy.release()
+            print(f"[voice] TOTAL interaction wall-clock: "
+                  f"{time.perf_counter() - interaction_start:.2f}s")

@@ -24,6 +24,21 @@ from kareem.errors import user_safe_error
 # for a single user message, so a confused model can't loop forever.
 MAX_TOOL_ROUNDS = 8
 
+# Ollama-fallback-hang investigation (see task report): ollama.Client()
+# defaults to timeout=None (unlimited) with nothing in OllamaBrain
+# overriding it, so a stuck local call could block forever with no way to
+# fail fast. Split connect vs read: a genuinely unreachable server should
+# fail almost immediately (short connect timeout), but a real tool-calling
+# round can legitimately take a long time on a small CPU-only model — one
+# isolated round-2 (tool-call continuation) measured 55.71s and still
+# produced a real (if degenerate) response, not a hang — so the read
+# timeout stays generous to avoid cutting off genuine slow-but-working
+# generation. This bounds the "indistinguishable from hung" window, it
+# doesn't eliminate the underlying slowness (a separate, inherent CPU-
+# inference tradeoff of the local fallback tier, not a bug).
+OLLAMA_CONNECT_TIMEOUT_SECONDS = 10
+OLLAMA_READ_TIMEOUT_SECONDS = 120
+
 
 class ThinkFilter:
     """Streaming version of strip_think(): feed it text chunks as they arrive
@@ -191,6 +206,7 @@ class OllamaBrain:
 
     def __init__(self, model: str = None, host: str = None):
         try:
+            import httpx
             import ollama
         except ImportError:
             raise RuntimeError(
@@ -200,11 +216,24 @@ class OllamaBrain:
 
         self.model = model or config.OLLAMA_MODEL
         self.host = host or config.OLLAMA_URL
-        self._client = ollama.Client(host=self.host)
+        self._client = ollama.Client(
+            host=self.host,
+            timeout=httpx.Timeout(
+                OLLAMA_READ_TIMEOUT_SECONDS, connect=OLLAMA_CONNECT_TIMEOUT_SECONDS
+            ),
+        )
 
+        # TEMP heartbeat (Ollama-fallback-hang investigation, see task
+        # report): pinpoints whether a stall happens here (the fail-fast
+        # reachability check) or later, inside chat()'s loop. Proven useful
+        # for pinning down the round-2 slowness — kept in for now.
+        import time as _time
+        print(f"  [ollama] __init__: list() starting…", flush=True)
+        _t0 = _time.perf_counter()
         # Fail fast with a clear message if Ollama isn't reachable.
         try:
             self._client.list()
+            print(f"  [ollama] __init__: list() done in {_time.perf_counter() - _t0:.2f}s", flush=True)
         except Exception as e:
             raise RuntimeError(
                 f"Couldn't reach Ollama at {self.host}.\n"
@@ -270,7 +299,12 @@ class OllamaBrain:
             ollama_messages = messages
 
         empty_retries = 0
-        for _ in range(MAX_TOOL_ROUNDS):
+        import time as _time
+        for _round in range(MAX_TOOL_ROUNDS):
+            print(f"  [ollama] chat() round {_round + 1}: calling client.chat() "
+                  f"with {len(ollama_tools or [])} tools, "
+                  f"{len(ollama_messages)} messages…", flush=True)
+            _t0 = _time.perf_counter()
             response = self._client.chat(
                 model=self.model,
                 messages=ollama_messages,
@@ -280,6 +314,8 @@ class OllamaBrain:
                 # pays a long reload delay
                 keep_alive="1h",
             )
+            print(f"  [ollama] chat() round {_round + 1}: client.chat() returned "
+                  f"in {_time.perf_counter() - _t0:.2f}s", flush=True)
             msg = response["message"]
             tool_calls = getattr(msg, "tool_calls", None) or []
 
@@ -300,7 +336,16 @@ class OllamaBrain:
             # (concurrently when the whole batch is confirmation-free — see
             # agent.py's _execute_tool_calls), feed the results back, and let
             # it continue.
-            ollama_messages.append(msg)
+            # msg is the raw ollama._types.Message pydantic object, not a
+            # plain dict — normalize it before feeding it back into the next
+            # chat() call's messages list, matching HostedBrain's equivalent
+            # handling (msg.model_dump(exclude_none=True)) elsewhere in this
+            # file. Didn't turn out to be the cause of the round-2 slowness
+            # investigated in the task report (a plain dict was just as slow
+            # as the raw object), but appending an un-normalized response
+            # object into a list of otherwise-plain dicts is still real
+            # inconsistency worth fixing on its own.
+            ollama_messages.append(msg.model_dump(exclude_none=True))
             calls = [(call["function"]["name"], call["function"]["arguments"] or {})
                      for call in tool_calls]
             for call, result in zip(tool_calls, execute_tool(calls)):

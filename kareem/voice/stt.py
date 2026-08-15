@@ -129,7 +129,16 @@ def _initial_prompt():
 def transcribe(audio) -> str:
     """audio: int16 mono numpy array at 16 kHz (from vad.record_until_silence).
     Returns the recognized text ('' if nothing was understood)."""
+    import time
+
     import numpy as np
+
+    # TEMP timing instrumentation (full-pipeline latency diagnosis, see task
+    # report): the STT stage was never measured by the earlier Groq-only
+    # diagnostic. total_start covers model-load-if-cold too (get_model()
+    # below), since a cold load on the first real turn of a session is a
+    # real, user-visible cost, not just the raw transcription work.
+    total_start = time.perf_counter()
 
     # whisper wants float32 in [-1, 1]
     audio_f32 = audio.astype(np.float32) / 32768.0
@@ -137,11 +146,18 @@ def transcribe(audio) -> str:
 
     if getattr(config, "STT_ENGINE", "local") == "groq":
         try:
-            return _transcribe_groq(audio_f32)
+            text = _transcribe_groq(audio_f32)
+            print(f"  [stt] groq engine: {time.perf_counter() - total_start:.2f}s "
+                  f"for {audio.shape[0] / 16000:.2f}s of audio")
+            return text
         except Exception as e:
             print(f"(Groq speech recognition unavailable ({e}) — using the local model instead.)")
 
+    model_start = time.perf_counter()
     model = get_model()
+    model_load_elapsed = time.perf_counter() - model_start  # ~0 once warmed/cached
+
+    transcribe_start = time.perf_counter()
     segments, _info = model.transcribe(
         audio_f32,
         language="en",
@@ -151,4 +167,10 @@ def transcribe(audio) -> str:
         condition_on_previous_text=False,  # each command is independent
         initial_prompt=_initial_prompt(),  # bias toward STT_VOCABULARY terms
     )
-    return " ".join(seg.text.strip() for seg in segments).strip()
+    text = " ".join(seg.text.strip() for seg in segments).strip()
+    transcribe_elapsed = time.perf_counter() - transcribe_start
+    total_elapsed = time.perf_counter() - total_start
+    print(f"  [stt] local ({config.STT_MODEL}): {total_elapsed:.2f}s total "
+          f"(model load: {model_load_elapsed:.2f}s, decode: {transcribe_elapsed:.2f}s) "
+          f"for {audio.shape[0] / 16000:.2f}s of audio")
+    return text

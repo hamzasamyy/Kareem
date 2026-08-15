@@ -116,6 +116,9 @@ class _FakeOllamaMessage:
             return self._content
         raise KeyError(key)
 
+    def model_dump(self, exclude_none=False):
+        return {"role": "assistant", "content": self._content, "tool_calls": self.tool_calls}
+
 
 def _make_ollama_brain_always_tool_call():
     brain = OllamaBrain.__new__(OllamaBrain)

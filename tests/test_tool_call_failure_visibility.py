@@ -8,9 +8,12 @@ from kareem.brain import HostedBrain, MAX_TOOL_ROUNDS, OllamaBrain
 
 
 class _FakeOllamaMessage:
-    """Minimal stand-in for ollama's response message: supports both
-    dict-style `msg["content"]` and attribute-style `msg.tool_calls`,
-    matching exactly how OllamaBrain.chat reads a real one."""
+    """Minimal stand-in for ollama's response message: supports dict-style
+    `msg["content"]`, attribute-style `msg.tool_calls`, and `.model_dump()`
+    (used to normalize the message before feeding it back into the next
+    chat() round — see the Ollama-fallback-hang investigation in the task
+    report), matching exactly how OllamaBrain.chat reads/re-serializes a
+    real one."""
 
     def __init__(self, content="", tool_calls=None):
         self._content = content
@@ -20,6 +23,9 @@ class _FakeOllamaMessage:
         if key == "content":
             return self._content
         raise KeyError(key)
+
+    def model_dump(self, exclude_none=False):
+        return {"role": "assistant", "content": self._content, "tool_calls": self.tool_calls}
 
 
 def _make_ollama_brain(responses):

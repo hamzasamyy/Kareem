@@ -253,19 +253,33 @@ class Speaker:
         )
 
     def _speak_kokoro(self, text: str):
+        import time
+
         import sounddevice as sd
 
         from kareem import config
 
+        # TEMP timing instrumentation (full-pipeline latency diagnosis, see
+        # task report): "synthesis" is the time from speak() being called to
+        # audio actually starting to play (sd.play() returns immediately —
+        # it hands off to the audio backend and starts streaming — so this
+        # is a real "time to first sound" measurement, not just a proxy).
+        synth_start = time.perf_counter()
         lang = "en-gb" if config.TTS_VOICE.lower().startswith("b") else "en-us"
         samples, sample_rate = self._kokoro.create(
             text, voice=config.TTS_VOICE, speed=config.TTS_SPEED, lang=lang,
         )
+        synth_elapsed = time.perf_counter() - synth_start
         sd.play(samples, sample_rate)
+        play_start = time.perf_counter()
+        print(f"  [tts] kokoro synthesis: {synth_elapsed:.2f}s "
+              f"(then audio starts) for {len(text)} chars")
         sd.wait()
+        print(f"  [tts] kokoro playback: {time.perf_counter() - play_start:.2f}s")
 
     def _speak_piper(self, text: str):
         import io
+        import time
         import wave
 
         import numpy as np
@@ -283,9 +297,17 @@ class Speaker:
         speed = getattr(config, "TTS_SPEED", 1.0) or 1.0
         syn_config = SynthesisConfig(length_scale=1.0 / speed)
 
+        # TEMP timing instrumentation (full-pipeline latency diagnosis, see
+        # task report): synthesize_wav is fully synchronous/CPU-bound — it
+        # generates the WHOLE clip before sd.play() can start, unlike a
+        # true streaming TTS. That makes "synthesis" here the real
+        # speak()-called-to-first-sound latency, and a real candidate
+        # bottleneck for longer replies.
+        synth_start = time.perf_counter()
         buf = io.BytesIO()
         with wave.open(buf, "wb") as wav_file:
             self._piper_voice.synthesize_wav(text, wav_file, syn_config=syn_config)
+        synth_elapsed = time.perf_counter() - synth_start
 
         buf.seek(0)
         with wave.open(buf, "rb") as wav_file:
@@ -293,18 +315,30 @@ class Speaker:
             frames = wav_file.readframes(wav_file.getnframes())
         audio = np.frombuffer(frames, dtype=np.int16)
         sd.play(audio, samplerate)
+        play_start = time.perf_counter()
+        print(f"  [tts] piper synthesis: {synth_elapsed:.2f}s "
+              f"(then audio starts) for {len(text)} chars")
         sd.wait()
+        print(f"  [tts] piper playback: {time.perf_counter() - play_start:.2f}s")
 
     def _speak_pyttsx3(self, text: str):
         # A fresh engine per call avoids pyttsx3's "second runAndWait hangs"
         # quirk on some Windows setups. SAPI init is fast, so this is cheap.
+        import time
+
         import pyttsx3
 
+        synth_start = time.perf_counter()
         engine = pyttsx3.init()
         engine.setProperty("rate", 180)
         engine.say(text)
+        print(f"  [tts] pyttsx3 init+queue: {time.perf_counter() - synth_start:.2f}s "
+              f"for {len(text)} chars")
+        play_start = time.perf_counter()
         engine.runAndWait()
         engine.stop()
+        print(f"  [tts] pyttsx3 speak (synth+playback, not separable): "
+              f"{time.perf_counter() - play_start:.2f}s")
 
 
 class SentenceStreamer:
