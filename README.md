@@ -1,5 +1,7 @@
 # Kareem — your personal desktop assistant
 
+![Kareem's main screen — a dark HUD interface with a glowing cyan orb, ready to chat](docs/screenshots/hero.png)
+
 Kareem is a voice + text assistant that runs on your own PC. By default it
 thinks with a **free hosted cloud model** (fast — it runs on the provider's
 GPU, not your laptop). Two other brains are one config line away: a fully
@@ -82,6 +84,21 @@ session limits — but automated logins to a real institution's systems are
 still something to use at your own judgment, not something Kareem can
 guarantee is risk-free for your account.
 
+![The University screen — tabs for Assignments, Quizzes, Exams, Emails, Announcements, Finances, and Completed, with tracked items and Seen/Completed toggles](docs/screenshots/university.png)
+*Everything GUC turns up gets sorted into tabs, with per-item read/completed tracking and one-click "mark all" actions.*
+
+### Trackers (to-dos, deadlines, custom lists)
+
+Open the **Trackers** panel (button in the top bar) to see everything Kareem
+is keeping track of for you — plain to-dos, calendar-linked reminders, and
+custom lists. GUC deadlines land here too, tagged by course, alongside
+whatever else you ask Kareem to track. Add, complete, or delete items from
+the panel, or just ask Kareem in chat ("add a to-do to…", "what's on my
+plate this week?").
+
+![The Trackers panel showing a populated custom list of real course deadlines and announcements](docs/screenshots/trackers.png)
+*A populated custom list — course deadlines and announcements Kareem pulled in automatically.*
+
 ## Three ways to talk to it
 
 1. **The website (the main way)** — `python main.py` also starts a local web
@@ -97,6 +114,12 @@ guarantee is risk-free for your account.
    to, instead of opening the website.
 
 All three share ONE conversation — you can mix them freely.
+
+![A real exchange in the web interface — a streamed reply next to the orb, with the activity feed on the right](docs/screenshots/chat.png)
+*The website: the orb, a real conversation, and a live feed of what Kareem is doing.*
+
+![Close-up of the activity rail showing a tool call and its result](docs/screenshots/activity-rail.png)
+*Every tool call is traced live in that feed — here, `tracker_list` fetching a to-do.*
 
 ---
 
