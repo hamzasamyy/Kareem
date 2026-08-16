@@ -116,10 +116,64 @@ def open_app(name: str) -> str:
         return f"Couldn't open {name}: {e}"
 
 
+def _find_processes_by_exe_name(exe_name: str) -> dict:
+    """{pid: psutil.Process} for every running process whose executable name
+    matches exactly. The ORIGINAL close_app detection method — reliable when
+    KNOWN_APPS's assumed exe name matches reality (classic Win32 apps:
+    notepad.exe, cmd.exe, mspaint.exe, ...)."""
+    import psutil
+
+    return {
+        p.pid: p for p in psutil.process_iter(["pid", "name"])
+        if (p.info.get("name") or "").lower() == exe_name.lower()
+    }
+
+
+def _find_processes_by_window_title(name: str) -> dict:
+    """{pid: psutil.Process} for every visible top-level window whose title
+    contains `name`, resolved to its OWNING process via pywinauto (already a
+    dependency — see app_control.py). Exists because 'start <name>' and the
+    process that ACTUALLY ends up on screen are not always the same
+    executable: live-verified that 'calc' resolves through a Windows App
+    Execution Alias to CalculatorApp.exe, not calc.exe, so a pure exe-name
+    lookup (matching only what open_app was told to launch) silently finds
+    nothing for it — same failure mode would hit any future app with this
+    kind of alias/repackaging, not just Calculator, which is why this is a
+    second independent detection signal rather than a third hardcoded
+    KNOWN_APPS exception. Best-effort: window enumeration or PID resolution
+    failing for one window is skipped, not fatal to the whole search."""
+    import psutil
+
+    found = {}
+    try:
+        from pywinauto import Desktop
+
+        needle = name.strip().lower()
+        for win in Desktop(backend="uia").windows():
+            try:
+                if needle not in (win.window_text() or "").lower():
+                    continue
+                if not win.is_visible():
+                    continue
+                pid = win.process_id()
+                found[pid] = psutil.Process(pid)
+            except Exception:
+                continue
+    except Exception:
+        pass  # pywinauto/UIA unavailable — this signal degrades to empty, not fatal
+    return found
+
+
 @register({
     "name": "close_app",
     "description": (
         "Close a running desktop app by name (e.g. 'notepad', 'calculator'). "
+        "Finds the real running process two independent ways — by the "
+        "executable name a friendly name usually maps to, AND by matching "
+        "a visible window's title to its actual owning process — since "
+        "those aren't always the same thing (e.g. Windows 11's modern "
+        "Calculator: 'calc' launches through an alias to CalculatorApp.exe, "
+        "not calc.exe; matching by name alone would silently find nothing). "
         "Sends a graceful close request (not a force-kill) and then actually "
         "VERIFIES the process exited before reporting success; never "
         "reports success on a guess. Note: 'graceful' asks nicely, it "
@@ -147,41 +201,60 @@ def open_app(name: str) -> str:
 def close_app(name: str) -> str:
     import time
 
-    import psutil
-
     target = KNOWN_APPS.get(name.strip().lower(), name.strip())
     exe_name = target if target.lower().endswith(".exe") else f"{target}.exe"
     log_action("close_app", target)
 
-    matches = [
-        p for p in psutil.process_iter(["pid", "name"])
-        if (p.info.get("name") or "").lower() == exe_name.lower()
-    ]
+    # Union of both detection signals — see the two helpers' docstrings.
+    # Deliberately not "prefer window match, fall back to exe match": a
+    # background/minimized process with no matching visible window still
+    # needs the exe-name path, so both run every time and results merge.
+    matches = {
+        **_find_processes_by_exe_name(exe_name),
+        **_find_processes_by_window_title(name),
+    }
     if not matches:
-        return f"No running process found matching '{name}' (looked for {exe_name})."
+        return (
+            f"No running process found matching '{name}' (looked for "
+            f"{exe_name}, and for a visible window titled like '{name}')."
+        )
 
     try:
-        # No /F: a graceful WM_CLOSE-style request to the process's main
-        # window, same as clicking its own close button, rather than an
-        # unconditional force-kill (a much more destructive, separate
-        # decision this tool deliberately doesn't make on its own). This is
-        # a real but limited protection, not a guarantee — live-tested
-        # against Windows 11's Notepad with unsaved text, and it closed
-        # anyway instead of pausing on its own save-changes prompt. Classic
-        # Win32 apps may honor this more reliably; don't rely on it either
-        # way for anything the user would mind losing.
-        subprocess.run(
-            ["taskkill", "/IM", exe_name],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        # No /F: a graceful WM_CLOSE-style request to this SPECIFIC process
+        # (by PID, not by executable name) — same as clicking its own close
+        # button, rather than an unconditional force-kill (a much more
+        # destructive, separate decision this tool deliberately doesn't make
+        # on its own). Closing by PID rather than taskkill /IM is what makes
+        # the window-title-matched processes closeable at all: /IM needs the
+        # exact exe name, which is precisely what this path doesn't rely on.
+        # This is a real but limited protection, not a guarantee —
+        # live-tested against Windows 11's Notepad with unsaved text, and it
+        # closed anyway instead of pausing on its own save-changes prompt.
+        # Classic Win32 apps may honor this more reliably; don't rely on it
+        # either way for anything the user would mind losing.
+        for pid in matches:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
     except Exception as e:
         return f"Couldn't send a close request to {name}: {e}"
 
     # Verify — this is the actual fix: don't trust that the close request was
     # sent, confirm the process is actually gone. taskkill's own exit code
-    # only means "request delivered," not "process exited."
-    deadline = time.time() + 6
-    still_running = matches
+    # only means "request delivered," not "process exited." Checked by PID,
+    # so this is correct regardless of what the process is actually named.
+    #
+    # 12s, not 6: live-tested against Windows 11's Calculator (a modern/
+    # UWP-style app, unlike classic Win32 Notepad) and it consistently took
+    # ~7-9s to actually terminate after the same graceful close request —
+    # a real process was verified gone both times, close_app just wasn't
+    # waiting long enough to see it and reported a false "didn't actually
+    # close." That's the same category of wrong status report this tool
+    # exists to prevent, just in the other direction, so the deadline is
+    # part of the same fix, not a separate tuning change.
+    deadline = time.time() + 12
+    still_running = list(matches.values())
     while time.time() < deadline:
         still_running = [p for p in still_running if p.is_running()]
         if not still_running:
@@ -191,7 +264,7 @@ def close_app(name: str) -> str:
     if not still_running:
         return f"Closed {name}."
     return (
-        f"{name} didn't actually close within 6 seconds — it may be "
+        f"{name} didn't actually close within 12 seconds — it may be "
         "waiting on an unsaved-changes prompt that isn't visible here, or "
         "the close request didn't register. Not reporting success. Check "
         "if there's a prompt to respond to, or ask the user before forcing "
