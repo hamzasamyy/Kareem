@@ -35,6 +35,13 @@ class VoiceController:
         self.wakeword = None
         self.streamer = None  # set by main.py when speak-while-generating is on
         self.open_web = None  # set by main.py: opens/focuses the web UI
+        # set by main.py: kareem.web.server.page_is_open — a LIVE, cheap
+        # check of whether any browser tab has the website open right now
+        # (backed by the WebSocket client count the server already tracks
+        # for simple-mode's close-tab-to-quit logic). None when the web
+        # interface isn't running at all, in which case the wake word
+        # behaves exactly as before (nothing to suppress it in favor of).
+        self.page_is_open = None
         self._hotkey_listener = None
         self._busy = threading.Lock()  # one voice interaction at a time
 
@@ -94,7 +101,7 @@ class VoiceController:
         if config.WAKE_WORD_ENABLED:
             try:
                 from kareem.voice.wakeword import WakeWordListener
-                self.wakeword = WakeWordListener(on_wake=self._on_trigger)
+                self.wakeword = WakeWordListener(on_wake=self._on_wake_trigger)
                 if self.wakeword.start():
                     print('Wake word ready: say "hey kareem" to talk.')
                     listening = True
@@ -153,9 +160,32 @@ class VoiceController:
         print(f"(heard: {answer or 'nothing'})")
         return "yes" if any(w in answer for w in ("yes", "yeah", "yep", "sure", "go ahead")) else "no"
 
+    def _on_wake_trigger(self):
+        """Wake-word-ONLY entry point (registered as WakeWordListener's
+        on_wake, never used by the hotkey). If any browser tab currently has
+        the website open, the wake word is completely silently ignored —
+        no browser action, no Activity log entry, nothing — per the user's
+        request that "hey kareem" only matter when nobody's already got the
+        web UI open to talk through. The in-browser voice input (mic
+        button/voice-first mode) is a totally separate code path in
+        kareem/web/server.py and is untouched by this.
+
+        self.page_is_open() is a LIVE call each time (kareem.web.server's
+        page_is_open() reads the current WebSocket client count), not a
+        cached snapshot — so opening or closing a tab takes effect on the
+        very next wake-word detection, not just at startup.
+
+        The hotkey deliberately does NOT go through this gate (see start():
+        GlobalHotKeys is wired directly to _on_trigger) — pressing it is a
+        manual, deliberate action, unaffected by whether a tab is open."""
+        if self.page_is_open and self.page_is_open():
+            return
+        self._on_trigger()
+
     def _on_trigger(self):
-        """Called by the wake word or hotkey. Runs the whole interaction in a
-        fresh thread so the trigger callbacks never block."""
+        """Called by the wake word (via _on_wake_trigger's gate) or directly
+        by the hotkey. Runs the whole interaction in a fresh thread so the
+        trigger callbacks never block."""
         if not self._busy.acquire(blocking=False):
             return  # already mid-conversation; ignore extra triggers
         threading.Thread(target=self._handle_interaction, daemon=True).start()

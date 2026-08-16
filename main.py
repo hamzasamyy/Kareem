@@ -393,6 +393,10 @@ def main():
                 # "hey kareem" / hotkey now opens the web UI (see WAKE_OPENS_WEB
                 # in kareem/config.py to restore the old talk-out-loud behavior)
                 voice.open_web = web_server.open_page
+                # Lets the wake word (only — not the hotkey) go silent while a
+                # browser tab already has the website open; see
+                # VoiceController._on_wake_trigger for the full reasoning.
+                voice.page_is_open = web_server.page_is_open
             voice.start()
         except Exception as e:
             print(f"Voice features unavailable ({e}). Text chat still works.")
