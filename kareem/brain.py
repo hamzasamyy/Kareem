@@ -957,14 +957,23 @@ class ClaudeBrain:
 
         claude_tools = self._to_claude_tools(tools) if tools else None
 
+        # Anthropic's API rejects system=None outright (400: "system: Input
+        # should be a valid array") rather than treating it as "omitted" —
+        # unlike a plain None default, the kwarg has to be absent entirely
+        # when there's no system-role message. Callers without one are real:
+        # e.g. agent.py's _trim_history_if_needed() summarization call sends
+        # a bare user-only message list.
+        create_kwargs = {
+            "model": self.model,
+            "max_tokens": 2048,
+            "messages": convo,
+            "tools": claude_tools or [],
+        }
+        if system is not None:
+            create_kwargs["system"] = system
+
         for _ in range(MAX_TOOL_ROUNDS):
-            response = self._client.messages.create(
-                model=self.model,
-                max_tokens=2048,
-                system=system,
-                messages=convo,
-                tools=claude_tools or [],
-            )
+            response = self._client.messages.create(**create_kwargs)
 
             if response.stop_reason != "tool_use" or execute_tool is None:
                 text_parts = [b.text for b in response.content if b.type == "text"]

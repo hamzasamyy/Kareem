@@ -22,7 +22,7 @@ file, restart Kareem (`python main.py`), and the new setting takes effect.
 # "claude" — Claude follows instructions and picks tool parameters far more
 # consistently. It costs money per request; the free brain is deliberately
 # the default.
-BRAIN = "hosted"
+BRAIN = "claude"
 
 # --- Hosted settings (used when BRAIN = "hosted") ---
 # Works with ANY OpenAI-compatible provider — pick one by setting the base URL
@@ -104,7 +104,7 @@ OLLAMA_URL = "http://localhost:11434"
 # The API key is NOT stored here. Put it in a file named `.env` next to
 # main.py (copy `.env.example` to `.env` and fill it in).
 # Current Claude models support image input.
-CLAUDE_MODEL = "claude-sonnet-5"
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # --- Vision fallback (kareem/tools/vision.py's vision_click — general
 # command execution's Layer 3) ---
