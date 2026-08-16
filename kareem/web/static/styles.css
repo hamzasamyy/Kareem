@@ -628,6 +628,8 @@ body {
   cursor: pointer; font-family: var(--font-ui); }
 .guc-check-now:hover:not(:disabled), .guc-approve:hover:not(:disabled) { background: rgba(34, 211, 238, 0.2); }
 .guc-check-now:disabled, .guc-review-actions button:disabled { opacity: .55; cursor: default; }
+.guc-calendar-status { gap: 10px; }
+.guc-calendar-reconnect { padding: 4px 10px; font-size: 10px; }
 /* Explicit min-heights (not just content-driven padding) so these rows
    can't visually collide with .guc-content below them if a font hasn't
    finished loading yet and swaps in in a taller fallback mid-layout —

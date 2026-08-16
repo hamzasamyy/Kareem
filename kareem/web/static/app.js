@@ -1188,6 +1188,8 @@ let gucPollTimer = null;
 let gucPollStarted = 0;
 let gucData = null;
 let gucSection = "assignments";
+let calendarStatusData = null;
+let calendarPollTimer = null;
 const GUC_SECTIONS = [["assignments", "Assignments"], ["quizzes", "Quizzes"], ["exams", "Exams"], ["emails", "Emails"], ["announcements", "Announcements"], ["finances", "Finances"], ["completed", "Completed"]];
 const GUC_CATEGORY_LABELS = { assignments: "Assignment", quizzes: "Quiz", exams: "Exam", emails: "Email", announcements: "Announcement", finances: "Finance", other: "Item" };
 
@@ -1369,9 +1371,93 @@ function renderGucStatus(data) {
   }
   const check = Object.assign(document.createElement("button"), { type: "button", className: "guc-check-now", textContent: data.in_progress ? "Checking…" : "Check now", disabled: Boolean(data.in_progress) });
   check.addEventListener("click", startGucCheck);
-  gucStatusBar.append(checked, logins, check);
+  gucStatusBar.append(checked, logins, check, gucCalendarStatusEl());
   gucGlobalActions.replaceChildren(gucBulkActions("all", true));
   renderGucSection();
+}
+
+// "Reconnect Calendar" — one-click control (Section 4): shows connected/
+// expired/error/not-configured status and, for anything other than
+// "not_configured", a button that deletes token.json and re-triggers the
+// OAuth consent flow. Kept separate from the GUC status polling above
+// (different backend, different failure modes) but rendered in the same
+// status bar since both are "is University data flowing" indicators.
+const CALENDAR_STATUS_LABEL = {
+  connected: "CALENDAR CONNECTED",
+  expired: "CALENDAR TOKEN EXPIRED",
+  error: "CALENDAR ERROR",
+  disconnected: "CALENDAR NOT CONNECTED",
+  not_configured: "CALENDAR NOT SET UP",
+};
+
+function gucCalendarStatusEl() {
+  const wrap = document.createElement("span");
+  wrap.className = "guc-login mono guc-calendar-status";
+  const state = calendarStatusData?.state;
+  const dot = document.createElement("span");
+  dot.className = `guc-dot${state === "connected" ? " ok" : state === "error" ? " error" : ""}`;
+  if (calendarStatusData?.detail) wrap.title = calendarStatusData.detail;
+  wrap.append(dot, CALENDAR_STATUS_LABEL[state] || "CALENDAR STATUS UNKNOWN");
+  if (state && state !== "not_configured") {
+    const reconnect = Object.assign(document.createElement("button"), {
+      type: "button",
+      className: "guc-check-now guc-calendar-reconnect",
+      textContent: calendarStatusData?.in_progress ? "Reconnecting…" : "Reconnect Calendar",
+      disabled: Boolean(calendarStatusData?.in_progress),
+    });
+    reconnect.addEventListener("click", startCalendarReconnect);
+    wrap.appendChild(reconnect);
+  }
+  return wrap;
+}
+
+async function loadCalendarStatus() {
+  try {
+    const response = await fetch("/api/calendar/status");
+    const data = await response.json();
+    if (!response.ok) throw new Error("calendar status failed");
+    calendarStatusData = data;
+    return data;
+  } catch (error) {
+    calendarStatusData = { state: "error", detail: "could not reach the server" };
+    return calendarStatusData;
+  }
+}
+
+function stopCalendarPolling() {
+  if (calendarPollTimer !== null) clearInterval(calendarPollTimer);
+  calendarPollTimer = null;
+}
+
+function pollCalendarStatus() {
+  stopCalendarPolling();
+  const startedAt = Date.now();
+  calendarPollTimer = setInterval(async () => {
+    const data = await loadCalendarStatus();
+    renderGucStatus(gucData || {});
+    // Interactive OAuth consent has no fixed deadline (the user finishes
+    // it in their own browser tab), but stop polling after 5 minutes so a
+    // closed/abandoned tab doesn't poll forever.
+    if (!data.in_progress || Date.now() - startedAt >= 300000) stopCalendarPolling();
+  }, 3000);
+}
+
+async function startCalendarReconnect() {
+  try {
+    const response = await fetch("/api/calendar/reconnect", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error("reconnect request failed");
+    if (!data.started) {
+      showToast(data.reason ? `Reconnect couldn't start: ${data.reason}` : "A reconnect is already in progress.");
+      return;
+    }
+    showToast("Reconnecting Google Calendar — finish the consent screen in your browser…");
+    await loadCalendarStatus();
+    renderGucStatus(gucData || {});
+    pollCalendarStatus();
+  } catch (error) {
+    showToast("Calendar reconnect could not be started.");
+  }
 }
 
 async function loadGucStatus() {
@@ -1431,6 +1517,7 @@ async function openGuc() {
   closeMemory(false);
   layout.hidden = true;
   gucScreen.hidden = false;
+  await loadCalendarStatus();
   await loadGucStatus();
   gucBack.focus();
 }
@@ -1439,6 +1526,7 @@ function closeGuc(restoreFocus = true) {
   gucScreen.hidden = true;
   layout.hidden = false;
   stopGucPolling();
+  stopCalendarPolling();
   if (restoreFocus) universityToggle.focus();
 }
 

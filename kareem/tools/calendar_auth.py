@@ -18,6 +18,15 @@ TOKEN_PATH = PROJECT_ROOT / "token.json"
 _service = None
 _service_lock = threading.Lock()
 
+# One-click "Reconnect Calendar" state for the web UI (Section 4). A
+# reconnect deletes token.json and re-runs the interactive OAuth consent
+# flow (flow.run_local_server opens a browser and BLOCKS until the user
+# finishes there), so it must run on a background thread, never on a
+# request-handling thread — this dict is what the status endpoint polls
+# while that thread is working.
+_reconnect_lock = threading.Lock()
+_reconnect_state = {"in_progress": False, "last_error": None, "last_result_at": None}
+
 
 def _acquire_credentials():
     """Load, refresh, or first-time-authorize credentials, saving the token
@@ -102,3 +111,85 @@ def get_calendar_service():
                 f"Google Calendar client could not be created: {exc}"
             ) from exc
         return _service
+
+
+def get_status() -> dict:
+    """Best-effort connection snapshot for the web UI's Reconnect Calendar
+    control. Never triggers a network call or the interactive OAuth flow —
+    this only inspects local files, so it's always safe to poll.
+
+    `state` is one of:
+      - "not_configured" — no credentials.json (see README for setup)
+      - "disconnected"   — credentials.json exists but no token.json yet
+      - "connected"       — token.json exists and is currently valid
+      - "expired"         — token.json is expired but has a refresh_token
+                             (Kareem will self-refresh it on next real use;
+                             shown as a soft warning, not necessarily broken)
+      - "error"           — token.json exists but is unreadable/invalid, or
+                             has no refresh_token — reconnect required
+    """
+    with _reconnect_lock:
+        reconnect_snapshot = dict(_reconnect_state)
+
+    if not CREDENTIALS_PATH.is_file():
+        return {"state": "not_configured", "detail": None, **reconnect_snapshot}
+
+    if not TOKEN_PATH.is_file():
+        return {"state": "disconnected", "detail": None, **reconnect_snapshot}
+
+    try:
+        from google.oauth2.credentials import Credentials
+
+        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+    except Exception as exc:
+        return {"state": "error", "detail": f"token.json is invalid: {exc}", **reconnect_snapshot}
+
+    if creds.valid:
+        return {"state": "connected", "detail": None, **reconnect_snapshot}
+    if creds.expired and creds.refresh_token:
+        return {"state": "expired", "detail": None, **reconnect_snapshot}
+    return {
+        "state": "error",
+        "detail": "token has no refresh token — reconnect required",
+        **reconnect_snapshot,
+    }
+
+
+def reconnect() -> dict:
+    """Delete token.json and start a fresh OAuth consent flow in a
+    background thread. Returns immediately ({"started": True/False}) —
+    poll get_status() for the outcome, same pattern as
+    kareem.guc.scheduler's run_check_cycle/get_status."""
+    global _service
+
+    with _reconnect_lock:
+        if _reconnect_state["in_progress"]:
+            return {"started": False, "reason": "a reconnect is already in progress"}
+        _reconnect_state["in_progress"] = True
+        _reconnect_state["last_error"] = None
+
+    try:
+        TOKEN_PATH.unlink(missing_ok=True)
+    except OSError as exc:
+        with _reconnect_lock:
+            _reconnect_state["in_progress"] = False
+            _reconnect_state["last_error"] = f"couldn't remove token.json: {exc}"
+        return {"started": False, "reason": str(exc)}
+
+    _service = None  # drop the cached service so the next real use rebuilds with fresh creds
+
+    def _run():
+        from datetime import datetime
+
+        try:
+            _acquire_credentials()
+        except Exception as exc:
+            with _reconnect_lock:
+                _reconnect_state["last_error"] = str(exc)
+        finally:
+            with _reconnect_lock:
+                _reconnect_state["in_progress"] = False
+                _reconnect_state["last_result_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+
+    threading.Thread(target=_run, daemon=True, name="kareem-calendar-reconnect").start()
+    return {"started": True}

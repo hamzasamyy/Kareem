@@ -975,6 +975,11 @@ class ClaudeBrain:
         for _ in range(MAX_TOOL_ROUNDS):
             response = self._client.messages.create(**create_kwargs)
 
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                from kareem import cost
+                cost.record(self.model, usage.input_tokens, usage.output_tokens)
+
             if response.stop_reason != "tool_use" or execute_tool is None:
                 text_parts = [b.text for b in response.content if b.type == "text"]
                 return "\n".join(text_parts)

@@ -69,6 +69,7 @@ from fastapi.staticfiles import StaticFiles
 
 from kareem.guc import (auth as guc_auth, dedupe as guc_dedupe,
                         scheduler as guc_scheduler, sync as guc_sync)
+from kareem.tools import calendar_auth
 from kareem.web import bridge
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -409,6 +410,14 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             "sections": sections,
             "unclassified": unclassified,
         }
+
+    @app.get("/api/calendar/status")
+    async def calendar_status():
+        return calendar_auth.get_status()
+
+    @app.post("/api/calendar/reconnect")
+    async def calendar_reconnect():
+        return calendar_auth.reconnect()
 
     @app.post("/api/guc/check")
     async def guc_check():
