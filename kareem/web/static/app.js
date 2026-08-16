@@ -30,7 +30,10 @@ const modeVoice = document.getElementById("mode-voice");
 const modeText  = document.getElementById("mode-text");
 const ring      = document.getElementById("ring");
 const statusline= document.getElementById("statusline");
-const modelSelect = document.getElementById("model-select");
+const modelPicker        = document.getElementById("model-picker");
+const modelPickerTrigger = document.getElementById("model-picker-trigger");
+const modelPickerLabel   = document.getElementById("model-picker-label");
+const modelPickerMenu    = document.getElementById("model-picker-menu");
 const conn      = document.getElementById("conn");
 const rail      = document.getElementById("rail");
 const railToggle= document.getElementById("rail-toggle");
@@ -160,44 +163,124 @@ function showToast(text) {
 // actually constructs the new brain server-side before committing (real
 // key-presence/reachability checks), so a bad choice reports an error and
 // the dropdown snaps back to whatever is still actually running.
+//
+// Custom button+listbox rather than a native <select> — see index.html's
+// comment next to the markup for why (a native select's open popup can't
+// be styled consistently, which was exactly the HUD-mismatch this fixes).
+let modelOptions = [];
+let modelFocusedIndex = -1;
+
+function closeModelPicker() {
+  modelPicker.classList.remove("open");
+  modelPickerTrigger.setAttribute("aria-expanded", "false");
+  modelPickerMenu.hidden = true;
+  modelFocusedIndex = -1;
+}
+
+function openModelPicker() {
+  if (modelPickerTrigger.disabled || !modelOptions.length) return;
+  modelPicker.classList.add("open");
+  modelPickerTrigger.setAttribute("aria-expanded", "true");
+  modelPickerMenu.hidden = false;
+  modelPickerMenu.focus();
+  const selectedIndex = modelOptions.findIndex((o) => o.li.getAttribute("aria-selected") === "true");
+  focusModelOption(selectedIndex >= 0 ? selectedIndex : 0);
+}
+
+function focusModelOption(index) {
+  if (!modelOptions.length) return;
+  modelFocusedIndex = (index + modelOptions.length) % modelOptions.length;
+  for (const [i, { li }] of modelOptions.entries()) li.classList.toggle("focused", i === modelFocusedIndex);
+  modelOptions[modelFocusedIndex].li.scrollIntoView({ block: "nearest" });
+}
+
+function renderModelLabel(data) {
+  const current = data.options.find((o) => o.id === data.current_id);
+  modelPickerLabel.textContent = current ? current.label : (data.model || "Unknown model");
+}
+
 async function loadModelOptions() {
   try {
     const response = await fetch("/api/model");
     const data = await response.json();
     if (!response.ok) throw new Error("model status failed");
-    modelSelect.replaceChildren(
-      ...data.options.map((option) => Object.assign(document.createElement("option"), {
-        value: option.id, textContent: option.label, selected: option.id === data.current_id,
-      }))
-    );
-    // A running config (e.g. a hand-edited CLAUDE_MODEL) that matches no
-    // dropdown option: don't silently pretend one is selected.
-    if (!data.current_id) modelSelect.value = "";
+    renderModelLabel(data);
+    modelPickerMenu.replaceChildren();
+    modelOptions = data.options.map((option) => {
+      const li = document.createElement("li");
+      li.className = "model-picker-option";
+      li.setAttribute("role", "option");
+      li.dataset.id = option.id;
+      li.setAttribute("aria-selected", option.id === data.current_id ? "true" : "false");
+      const dot = Object.assign(document.createElement("span"), { className: "dot" });
+      const label = Object.assign(document.createElement("span"), { textContent: option.label });
+      li.append(dot, label);
+      li.addEventListener("click", () => selectModelOption(option.id));
+      modelPickerMenu.appendChild(li);
+      return { id: option.id, li };
+    });
     return data;
   } catch (error) {
     return null;
   }
 }
 
-modelSelect?.addEventListener("change", async () => {
-  const chosen = modelSelect.value;
-  modelSelect.disabled = true;
+async function selectModelOption(id) {
+  closeModelPicker();
+  modelPickerTrigger.disabled = true;
   try {
     const response = await fetch("/api/model", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: chosen }),
+      body: JSON.stringify({ id }),
     });
     const data = await response.json();
     if (!response.ok || !data.switched) throw new Error(data.reason || "switch failed");
-    showToast(`Switched to ${modelSelect.selectedOptions[0]?.textContent || chosen}.`);
+    const chosenOption = modelOptions.find((o) => o.id === id);
+    showToast(`Switched to ${chosenOption?.li.textContent || id}.`);
     logActivity(`model switched · ${data.brain} · ${data.model || ""}`.trim(), "dim", "dot");
     await loadModelOptions();
   } catch (error) {
     showToast(`Couldn't switch model: ${error.message || "unknown error"}`);
-    await loadModelOptions();  // revert the dropdown to whatever is actually running
+    await loadModelOptions();  // revert the trigger label to whatever is actually running
   } finally {
-    modelSelect.disabled = false;
+    modelPickerTrigger.disabled = false;
   }
+}
+
+modelPickerTrigger?.addEventListener("click", () => {
+  if (modelPicker.classList.contains("open")) closeModelPicker();
+  else openModelPicker();
+});
+
+modelPickerTrigger?.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openModelPicker();
+  }
+});
+
+modelPickerMenu?.addEventListener("keydown", (event) => {
+  switch (event.key) {
+    case "ArrowDown": event.preventDefault(); focusModelOption(modelFocusedIndex + 1); break;
+    case "ArrowUp": event.preventDefault(); focusModelOption(modelFocusedIndex - 1); break;
+    case "Enter":
+    case " ":
+      event.preventDefault();
+      if (modelFocusedIndex >= 0) selectModelOption(modelOptions[modelFocusedIndex].id);
+      break;
+    case "Escape":
+      event.preventDefault();
+      closeModelPicker();
+      modelPickerTrigger.focus();
+      break;
+    case "Tab":
+      closeModelPicker();
+      break;
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (modelPicker && !modelPicker.contains(event.target)) closeModelPicker();
 });
 
 // Small inline icons for the activity feed (stroke = currentColor).

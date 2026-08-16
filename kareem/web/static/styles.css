@@ -129,12 +129,62 @@ body {
 }
 .ring.listening .ring-arc { animation: ring-breathe 0.9s ease-in-out infinite; }
 
-/* --- model switcher --- */
-.model-select { color: var(--ink-dim); background: var(--panel);
-  border: 1px solid var(--panel-edge); border-radius: 8px; padding: 6px 8px;
-  font-size: 10px; letter-spacing: 0.04em; cursor: pointer; max-width: 190px; }
-.model-select:hover { border-color: var(--accent-dim); color: var(--ink); }
-.model-select:disabled { opacity: .55; cursor: default; }
+/* --- model switcher (custom dropdown — see index.html's comment on why
+   this isn't a native <select>) --- */
+.model-picker { position: relative; }
+.model-picker-trigger {
+  display: flex; align-items: center; gap: 8px;
+  max-width: 190px; color: var(--ink-dim); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 8px; padding: 6px 10px;
+  font-size: 10px; letter-spacing: 0.04em; cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.model-picker-trigger:hover { border-color: var(--accent-dim); color: var(--ink); }
+.model-picker-trigger:disabled { opacity: .55; cursor: default; }
+.model-picker.open .model-picker-trigger {
+  border-color: var(--accent-dim); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+.model-picker-label {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.model-picker-caret {
+  flex: 0 0 auto; width: 9px; height: 6px; color: var(--muted);
+  transition: transform 0.15s, color 0.15s;
+}
+.model-picker.open .model-picker-caret { transform: rotate(180deg); color: var(--accent); }
+
+.model-picker-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 80;
+  min-width: 230px; max-width: min(320px, 90vw);
+  margin: 0; padding: 6px; list-style: none;
+  background: rgba(10, 14, 20, 0.98);
+  border: 1px solid var(--accent-dim); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(34, 211, 238, 0.08);
+  max-height: min(320px, calc(100vh - var(--statusbar-h) - 24px));
+  overflow-y: auto;
+}
+.model-picker-menu[hidden] { display: none; }
+.model-picker-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: 8px;
+  color: var(--ink-dim); font-family: var(--font-ui); font-size: 12.5px;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.model-picker-option .dot {
+  flex: 0 0 auto; width: 5px; height: 5px; border-radius: 50%;
+  background: transparent; transition: background 0.15s, box-shadow 0.15s;
+}
+.model-picker-option:hover, .model-picker-option.focused {
+  background: rgba(34, 211, 238, 0.08); color: var(--ink);
+}
+.model-picker-option[aria-selected="true"] {
+  color: var(--accent); background: rgba(34, 211, 238, 0.12);
+}
+.model-picker-option[aria-selected="true"] .dot {
+  background: var(--accent); box-shadow: 0 0 6px var(--accent);
+}
 
 /* --- connection dot --- */
 .conn { display: flex; align-items: center; gap: 6px; }

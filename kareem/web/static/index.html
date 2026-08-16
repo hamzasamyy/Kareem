@@ -30,7 +30,21 @@
     <span class="statusline mono" id="statusline">standing by</span>
   </div>
   <div class="statusbar-right">
-    <select class="model-select mono" id="model-select" title="Switch which brain/model answers"></select>
+    <!-- Custom dropdown, not a native <select> — a native select's OPEN
+         popup can't be styled consistently across browsers (no control
+         over its background/highlight/font), which is exactly the mismatch
+         this replaces. Button + absolutely-positioned listbox instead. -->
+    <div class="model-picker" id="model-picker">
+      <button type="button" class="model-picker-trigger mono" id="model-picker-trigger"
+              aria-haspopup="listbox" aria-expanded="false" title="Switch which brain/model answers">
+        <span class="model-picker-label" id="model-picker-label">…</span>
+        <svg class="model-picker-caret" viewBox="0 0 10 6" aria-hidden="true">
+          <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <ul class="model-picker-menu mono" id="model-picker-menu" role="listbox"
+          aria-label="Model" tabindex="-1" hidden></ul>
+    </div>
     <span class="conn" id="conn" title="Connection to the Kareem engine">
       <span class="conn-dot"></span><span class="conn-label mono">LINK</span>
     </span>
