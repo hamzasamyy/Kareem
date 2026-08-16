@@ -28,6 +28,35 @@ from kareem.safety import log_action
 from kareem.tools import register
 
 
+# Title-based, best-effort check before the vision fallback screenshots the
+# WHOLE primary monitor (not just the target window/app) and sends it to an
+# external vision API — an open window with a sensitive-looking title
+# (an .env file in an editor, a credential manager, a raw token/password
+# visible in a title bar, ...) would get captured and uploaded right along
+# with everything else on screen, even if it has nothing to do with the
+# actual click target. Can't see window CONTENTS, only titles — genuinely
+# sensitive-but-blandly-titled windows aren't caught by this, but it's a
+# real, cheap backstop for the common cases.
+_SENSITIVE_WINDOW_KEYWORDS = (
+    ".env", "credential", "password", "secret", "token", "keychain",
+    "wallet", ".pem", "private key", "api key", "apikey",
+    "1password", "bitwarden", "lastpass", "keepass", "dashlane",
+)
+
+
+def _sensitive_windows_open() -> list[str]:
+    """Titles of currently open windows that look like they might expose
+    something sensitive if screenshotted. Best-effort; never raises — a
+    missing/broken pygetwindow means this check can't run, not that the
+    click should be blocked."""
+    try:
+        import pygetwindow
+        titles = [t for t in pygetwindow.getAllTitles() if t.strip()]
+    except Exception:
+        return []
+    return [t for t in titles if any(kw in t.lower() for kw in _SENSITIVE_WINDOW_KEYWORDS)]
+
+
 def _capture_screenshot_b64():
     """Screenshot the primary monitor. Returns (base64 PNG, (width, height))."""
     import mss
@@ -114,7 +143,11 @@ def _ask_vision_model(image_b64: str, description: str) -> dict:
         "pixel position (not a confirmed UI element) — less reliable, expect "
         "occasional misses. Every use is logged. Asks the user to confirm "
         "first for send/submit/delete-looking clicks; refuses outright for "
-        "financial transactions, permanent deletion, or a CAPTCHA/bot-check."
+        "financial transactions, permanent deletion, or a CAPTCHA/bot-check. "
+        "Also asks to confirm first if a sensitive-looking window (.env, "
+        "credentials, a password manager, ...) is currently open anywhere "
+        "on screen, since this takes a full-screen screenshot that would "
+        "capture it too."
     ),
     "parameters": {
         "type": "object",
@@ -128,11 +161,29 @@ def _ask_vision_model(image_b64: str, description: str) -> dict:
     },
 })
 def vision_click(description: str) -> str:
-    from kareem.safety import refuse_if_hard_blocked_click
+    from kareem.safety import confirm, refuse_if_hard_blocked_click
 
     blocked = refuse_if_hard_blocked_click("vision_click", description)
     if blocked:
         return blocked
+
+    sensitive = _sensitive_windows_open()
+    if sensitive:
+        titles = "; ".join(sensitive)
+        proceed = confirm(
+            "vision_screenshot_sensitive_window",
+            f"take a full-screen screenshot for the vision fallback — but "
+            f"a sensitive-looking window is currently open ({titles}) and "
+            "would be captured in it too",
+        )
+        if not proceed:
+            log_action("vision_click", f"REFUSED — sensitive window(s) open: {titles}")
+            return (
+                f"Refused: a sensitive-looking window is open ({titles}) and "
+                "the vision fallback screenshots the whole screen, not just "
+                "the target app — declined rather than risk capturing it. "
+                "Close that window first, or confirm explicitly to proceed anyway."
+            )
 
     model = getattr(config, "VISION_MODEL", "qwen/qwen3.6-27b")
     print(f"(VISION FALLBACK: locating '{description}' via screenshot + {model})")

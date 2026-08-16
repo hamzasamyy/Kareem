@@ -117,6 +117,89 @@ def open_app(name: str) -> str:
 
 
 @register({
+    "name": "close_app",
+    "description": (
+        "Close a running desktop app by name (e.g. 'notepad', 'calculator'). "
+        "Sends a graceful close request (not a force-kill) and then actually "
+        "VERIFIES the process exited before reporting success; never "
+        "reports success on a guess. Note: 'graceful' asks nicely, it "
+        "doesn't guarantee an app's own 'save changes?' prompt blocks this — "
+        "live-tested against Windows 11's Notepad with an unsaved edit, "
+        "which closed anyway rather than pausing on a prompt; don't assume "
+        "unsaved work is protected. Prefer this over browser_click/"
+        "app_click/vision_click for closing an app: those click at a pixel "
+        "position or an accessibility-tree control and can report 'clicked' "
+        "successfully without the app actually closing (e.g. hitting a "
+        "'Close Tab' control instead of the window's real Close in a "
+        "tabbed app like Windows 11's Notepad) — this tool's whole point is "
+        "not making that mistake. If the app doesn't close within a few "
+        "seconds (e.g. it's waiting on an unsaved-changes prompt you can't "
+        "see), this says so honestly instead of claiming success."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "The app to close, e.g. 'notepad'"},
+        },
+        "required": ["name"],
+    },
+})
+def close_app(name: str) -> str:
+    import time
+
+    import psutil
+
+    target = KNOWN_APPS.get(name.strip().lower(), name.strip())
+    exe_name = target if target.lower().endswith(".exe") else f"{target}.exe"
+    log_action("close_app", target)
+
+    matches = [
+        p for p in psutil.process_iter(["pid", "name"])
+        if (p.info.get("name") or "").lower() == exe_name.lower()
+    ]
+    if not matches:
+        return f"No running process found matching '{name}' (looked for {exe_name})."
+
+    try:
+        # No /F: a graceful WM_CLOSE-style request to the process's main
+        # window, same as clicking its own close button, rather than an
+        # unconditional force-kill (a much more destructive, separate
+        # decision this tool deliberately doesn't make on its own). This is
+        # a real but limited protection, not a guarantee — live-tested
+        # against Windows 11's Notepad with unsaved text, and it closed
+        # anyway instead of pausing on its own save-changes prompt. Classic
+        # Win32 apps may honor this more reliably; don't rely on it either
+        # way for anything the user would mind losing.
+        subprocess.run(
+            ["taskkill", "/IM", exe_name],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        return f"Couldn't send a close request to {name}: {e}"
+
+    # Verify — this is the actual fix: don't trust that the close request was
+    # sent, confirm the process is actually gone. taskkill's own exit code
+    # only means "request delivered," not "process exited."
+    deadline = time.time() + 6
+    still_running = matches
+    while time.time() < deadline:
+        still_running = [p for p in still_running if p.is_running()]
+        if not still_running:
+            break
+        time.sleep(0.3)
+
+    if not still_running:
+        return f"Closed {name}."
+    return (
+        f"{name} didn't actually close within 6 seconds — it may be "
+        "waiting on an unsaved-changes prompt that isn't visible here, or "
+        "the close request didn't register. Not reporting success. Check "
+        "if there's a prompt to respond to, or ask the user before forcing "
+        "it closed (that would discard unsaved changes)."
+    )
+
+
+@register({
     "name": "list_open_windows",
     "description": "List the titles of all windows currently open on the user's PC.",
     "parameters": {"type": "object", "properties": {}},

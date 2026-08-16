@@ -88,7 +88,12 @@ def _find_controls(window, description: str, editable_only: bool = False):
         "window title; try vision_click as a last resort if this can't find "
         "the target. Asks the user to confirm first for send/submit/delete-"
         "looking clicks; refuses outright for financial transactions, "
-        "permanent deletion, or a CAPTCHA/bot-check."
+        "permanent deletion, or a CAPTCHA/bot-check. "
+        "For CLOSING an app, use close_app instead, not this — clicking a "
+        "'close'-labeled control here can report success without the app "
+        "actually closing (e.g. it hits a 'Close Tab' control instead of "
+        "the window's real close, in a tabbed app like Windows 11's "
+        "Notepad); close_app verifies the process actually exited."
     ),
     "parameters": {
         "type": "object",
