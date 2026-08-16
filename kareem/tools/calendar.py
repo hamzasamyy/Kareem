@@ -55,11 +55,12 @@ def _event_lines(events):
 
 @register({
     "name": "calendar_add_event",
-    "description": "Create an event on the user's real Google Calendar. " + _DUE_HELP,
+    "description": "Create an event on the user's real Google Calendar. "
+                    "See the 'start' parameter for accepted time formats.",
     "parameters": {"type": "object", "properties": {
         "summary": {"type": "string", "description": "Event title"},
         "start": {"type": "string", "description": _DUE_HELP},
-        "end": {"type": "string", "description": "Optional end time. " + _DUE_HELP},
+        "end": {"type": "string", "description": "Optional end time, same formats as 'start'."},
         "description": {"type": "string"},
         "location": {"type": "string"},
     }, "required": ["summary", "start"]},
@@ -144,16 +145,13 @@ def _range_bounds(label):
 
 @register({
     "name": "calendar_list_events",
-    "description": (
-        "List events on the user's real Google Calendar for a date range. "
-        "Accepts 'today', 'yesterday', 'tomorrow', 'this week', 'last week', "
-        "'this weekend', 'next 7 days', or a specific date/phrase (e.g. "
-        "'2026-07-25', 'next Thursday', 'August 3rd')."
-    ),
+    "description": "List events on the user's real Google Calendar for a date range. "
+                    "See the 'range' parameter for accepted values.",
     "parameters": {"type": "object", "properties": {
         "range": {"type": "string", "description": "Defaults to today. Also accepts "
-                  "'yesterday', 'last week', 'this weekend', 'next 7 days', or a "
-                  "specific date/phrase."},
+                  "'yesterday', 'tomorrow', 'this week', 'last week', 'this weekend', "
+                  "'next 7 days', or a specific date/phrase (e.g. '2026-07-25', "
+                  "'next Thursday', 'August 3rd')."},
     }},
 })
 def calendar_list_events(range=None) -> str:

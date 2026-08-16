@@ -17,7 +17,7 @@ _DUE_HELP = (
     "name": "tracker_add",
     "description": (
         "Add an item to the user's personal to-do, reminder, calendar, project, "
-        f"or custom-list tracking. {_DUE_HELP}"
+        "or custom-list tracking. See the 'due' parameter for how to format a due time."
     ),
     "parameters": {
         "type": "object",
@@ -94,7 +94,8 @@ def tracker_remove(item_id: str) -> str:
 @register({
     "name": "tracker_set_reminder",
     "description": (
-        "Set or replace the reminder time on a personal tracker item. " + _DUE_HELP
+        "Set or replace the reminder time on a personal tracker item. "
+        "See the 'when' parameter for how to format the time."
     ),
     "parameters": {"type": "object", "properties": {
         "item_id": {"type": "string", "description": "The tracker item's 8-character id"},
