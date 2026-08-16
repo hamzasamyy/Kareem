@@ -227,7 +227,7 @@ def confirm(action: str, description: str, ask_fn=None) -> bool:
 
     action: one of the keys in RISKY_ACTIONS (used for logging/classification)
     description: a precise, plain-English sentence describing exactly what is
-                 about to happen, e.g. "Delete C:\\Users\\hamza\\old_notes.txt"
+                 about to happen, e.g. "Delete C:\\Users\\you\\old_notes.txt"
     ask_fn: optional callable(prompt: str) -> str, used to get the user's
             response. If not given, falls back to console input(). The voice
             loop passes in a function that speaks the prompt and listens for
