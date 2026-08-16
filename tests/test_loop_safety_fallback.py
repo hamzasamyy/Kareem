@@ -263,9 +263,9 @@ class StuckLoopFoldsInPriorReplyTests(unittest.TestCase):
     sites) and confirm each one surfaces the prior real answer instead of a
     bare failure, per the bug report's fix #3. This is a fully
     deterministic simulation (a fake client that always returns a tool
-    call), not a live model call — see the task report for why that's the
-    right verification standard for this specific piece (pure, testable
-    Python; no live-model judgment involved), unlike fixes #1/#2."""
+    call), not a live model call — that's the right verification standard
+    for this specific piece (pure, testable Python; no live-model judgment
+    involved), unlike fixes #1/#2."""
 
     def test_ollama_stuck_loop_folds_in_prior_reply(self):
         brain = _make_ollama_brain_always_tool_call()

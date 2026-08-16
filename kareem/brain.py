@@ -24,8 +24,8 @@ from kareem.errors import user_safe_error
 # for a single user message, so a confused model can't loop forever.
 MAX_TOOL_ROUNDS = 8
 
-# Ollama-fallback-hang investigation (see task report): ollama.Client()
-# defaults to timeout=None (unlimited) with nothing in OllamaBrain
+# Ollama-fallback-hang investigation: ollama.Client() defaults to
+# timeout=None (unlimited) with nothing in OllamaBrain
 # overriding it, so a stuck local call could block forever with no way to
 # fail fast. Split connect vs read: a genuinely unreachable server should
 # fail almost immediately (short connect timeout), but a real tool-calling
@@ -223,10 +223,10 @@ class OllamaBrain:
             ),
         )
 
-        # TEMP heartbeat (Ollama-fallback-hang investigation, see task
-        # report): pinpoints whether a stall happens here (the fail-fast
-        # reachability check) or later, inside chat()'s loop. Proven useful
-        # for pinning down the round-2 slowness — kept in for now.
+        # TEMP heartbeat (Ollama-fallback-hang investigation): pinpoints
+        # whether a stall happens here (the fail-fast reachability check)
+        # or later, inside chat()'s loop. Proven useful for pinning down
+        # the round-2 slowness — kept in for now.
         import time as _time
         print(f"  [ollama] __init__: list() starting…", flush=True)
         _t0 = _time.perf_counter()
@@ -341,8 +341,8 @@ class OllamaBrain:
             # chat() call's messages list, matching HostedBrain's equivalent
             # handling (msg.model_dump(exclude_none=True)) elsewhere in this
             # file. Didn't turn out to be the cause of the round-2 slowness
-            # investigated in the task report (a plain dict was just as slow
-            # as the raw object), but appending an un-normalized response
+            # investigated separately (a plain dict was just as slow as the
+            # raw object), but appending an un-normalized response
             # object into a list of otherwise-plain dicts is still real
             # inconsistency worth fixing on its own.
             ollama_messages.append(msg.model_dump(exclude_none=True))
@@ -641,8 +641,8 @@ class HostedBrain:
         if tools:
             kwargs["tools"] = self._to_openai_tools(tools)
 
-        # TEMP timing instrumentation (search-latency diagnosis, see task
-        # report): wall-clock time for each Groq round-trip — from issuing
+        # TEMP timing instrumentation (search-latency diagnosis): wall-clock
+        # time for each Groq round-trip — from issuing
         # the request through consuming the full streamed response, since
         # with stream=True the create() call itself returns almost
         # instantly and the real network time is spent iterating chunks
@@ -810,8 +810,8 @@ class HostedBrain:
         if tools:
             kwargs["tools"] = self._to_openai_tools(tools)
 
-        # TEMP timing instrumentation (search-latency diagnosis, see task
-        # report) — same purpose as _chat_streaming's round_times, but here
+        # TEMP timing instrumentation (search-latency diagnosis) — same
+        # purpose as _chat_streaming's round_times, but here
         # _create_with_retry's return already IS the full round-trip (no
         # separate chunk-consuming loop needed, unlike streaming).
         round_times = []

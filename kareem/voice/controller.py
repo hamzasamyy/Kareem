@@ -191,10 +191,10 @@ class VoiceController:
         threading.Thread(target=self._handle_interaction, daemon=True).start()
 
     def _handle_interaction(self):
-        # TEMP timing instrumentation (full-pipeline latency diagnosis, see
-        # task report): wall-clock for the whole voice interaction, matching
-        # what the user actually experiences (trigger -> fully spoken reply)
-        # — the earlier diagnostic only ever measured agent.send() internals.
+        # TEMP timing instrumentation (full-pipeline latency diagnosis):
+        # wall-clock for the whole voice interaction, matching what the
+        # user actually experiences (trigger -> fully spoken reply) — the
+        # earlier diagnostic only ever measured agent.send() internals.
         import time
         interaction_start = time.perf_counter()
         try:

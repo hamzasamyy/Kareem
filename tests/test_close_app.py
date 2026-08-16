@@ -2,10 +2,10 @@
 successful click on Notepad's "Close" control while the process kept
 running (Windows 11's tabbed Notepad has both a "Close Tab" and a window
 "Close" control, and the click landed on/registered against the wrong or
-non-functional one — see task report). close_app adds a graceful
-close-by-PID request as the PRIMARY path plus real post-close
-verification: it polls for the process to actually exit rather than
-trusting the close request was sent, and never reports success on a guess.
+non-functional one). close_app adds a graceful close-by-PID request as the
+PRIMARY path plus real post-close verification: it polls for the process
+to actually exit rather than trusting the close request was sent, and
+never reports success on a guess.
 
 Detection is TWO independent signals, unioned by PID — see
 kareem/tools/apps.py's _find_processes_by_exe_name /
@@ -16,12 +16,12 @@ _find_processes_by_window_title docstrings:
      11's modern Calculator ('calc' resolves through an App Execution Alias
      to CalculatorApp.exe, not calc.exe) made exe-name-only matching find
      nothing and made Kareem falsely claim "already closed" while the real
-     process kept running (see task report) — instead of hardcoding a third
+     process kept running — instead of hardcoding a third
      KNOWN_APPS name exception, detection now doesn't depend on knowing the
      exe name at all when a matching window is visible.
 
-Live-verified (see task report, not reproduced in these deterministic
-unit tests): closing a real Notepad instance succeeded and was confirmed
+Live-verified (not reproduced in these deterministic unit tests): closing
+a real Notepad instance succeeded and was confirmed
 independently via a separate process check; Windows 11's modern Notepad
 closed even with an unsaved edit rather than pausing on its own
 save-changes prompt — the tool's description is deliberately honest about

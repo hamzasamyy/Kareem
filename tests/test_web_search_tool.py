@@ -4,11 +4,11 @@ from kareem import tools
 
 
 class WebSearchQueryGuidanceWordingTests(unittest.TestCase):
-    """Cross-turn search bug report, fix #2: cheap regression guard on the
+    """Cross-turn search bug fix #2: cheap regression guard on the
     web_search TOOL DESCRIPTION wording only — confirms the query-quality
     guidance text is present, not that a model actually follows it (a
-    probabilistic, model-side question; see this fix's live-verification
-    notes in the task report for the actual behavioral check)."""
+    probabilistic, model-side question verified separately via live
+    behavioral testing, not by this file)."""
 
     @classmethod
     def setUpClass(cls):
@@ -25,9 +25,9 @@ class WebSearchQueryGuidanceWordingTests(unittest.TestCase):
         # live-tested against the real repro and did NOT stop an 8-round
         # cascade (each individual rephrasing looked locally reasonable to
         # the model in isolation, so it kept going) — replaced with an
-        # explicit numeric budget instead. This test only pins the wording;
-        # see the task report for what live re-testing of the numeric
-        # version actually showed.
+        # explicit numeric budget instead. This test only pins the wording —
+        # the numeric version's actual behavior was verified separately via
+        # live re-testing.
         description = self.spec["description"]
         self.assertIn("Don't cascade", description)
         self.assertIn("at most 2", description)
@@ -42,14 +42,13 @@ class WebSearchQueryGuidanceWordingTests(unittest.TestCase):
 
 
 class SearchLatencyFixWordingTests(unittest.TestCase):
-    """Search-latency bug report: measured that the real 30s+ cost was the
+    """Search-latency bug fix: measured that the real 30s+ cost was the
     model escalating past the snippet — one web_search then straight to
     browser_open/browser_read (a real, visible browser window) instead of
     answering from the snippet or using the cheap, capped fetch_page — never
     once calling fetch_page across 4 live repro runs. Cheap regression guard
-    on the resulting tool-description wording only (see this fix's live
-    before/after numbers in the task report for the actual behavioral
-    check)."""
+    on the resulting tool-description wording only — the before/after
+    behavioral numbers were verified separately via live testing."""
 
     @classmethod
     def setUpClass(cls):

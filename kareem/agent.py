@@ -309,11 +309,11 @@ class Agent:
         args_summary = ", ".join(f"{k}={v!r}" for k, v in args.items())
         print(f"  [tool] {name}({args_summary})")
         self._notify_tool("start", name, args_summary)
-        # TEMP timing instrumentation (search-latency diagnosis, see task
-        # report): actual wall-clock time for this ONE tool call's real work
-        # (the network call itself for web_search/fetch_page), independent
-        # of whether it ran concurrently with others in the same round — see
-        # brain.py's "[tools]" line for the round's overall wall-clock.
+        # TEMP timing instrumentation (search-latency diagnosis): actual
+        # wall-clock time for this ONE tool call's real work (the network
+        # call itself for web_search/fetch_page), independent of whether it
+        # ran concurrently with others in the same round — see brain.py's
+        # "[tools]" line for the round's overall wall-clock.
         import time
         start = time.perf_counter()
         try:
@@ -462,10 +462,10 @@ class Agent:
         relevant_tools = tool_routing.select_tools_for_message(
             tools.TOOL_SPECS, user_text, config.BRAIN
         )
-        # TEMP timing instrumentation (search-latency diagnosis, see task
-        # report): total wall-clock for this whole turn, for comparison
-        # against the [groq]/[tool] breakdown lines brain.py/this file print
-        # during the call below.
+        # TEMP timing instrumentation (search-latency diagnosis): total
+        # wall-clock for this whole turn, for comparison against the
+        # [groq]/[tool] breakdown lines brain.py/this file print during the
+        # call below.
         import time
         turn_start = time.perf_counter()
         try:

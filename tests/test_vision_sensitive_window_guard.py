@@ -6,7 +6,7 @@ That screenshot then gets uploaded to an external vision API. This guard
 checks open window TITLES for sensitive-looking keywords before capturing
 anything, and asks for explicit confirmation first if it finds one —
 live-verified against a real open ".env.example - Notepad" window and a
-real "API Keys - GroqCloud" browser tab (see task report)."""
+real "API Keys - GroqCloud" browser tab."""
 
 import unittest
 from unittest.mock import patch

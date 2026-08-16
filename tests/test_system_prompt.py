@@ -4,14 +4,13 @@ from kareem.agent import SYSTEM_PROMPT, SYSTEM_PROMPT_SMALL
 
 
 class SystemPromptWordingTests(unittest.TestCase):
-    """Cross-turn search bug report, fix #1: these are cheap regression
+    """Cross-turn search bug fix #1: these are cheap regression
     guards on PROMPT WORDING only — they confirm certain phrases are
     present, not that a model actually behaves a certain way (that's a
     probabilistic, model-side question that can only be verified by
-    actually driving a live model through a real conversation — see this
-    fix's live-verification notes in the task report, not this file).
-    Their only job is to catch a future edit that accidentally deletes one
-    of these two instructions while touching the other."""
+    actually driving a live model through a real conversation, not this
+    file). Their only job is to catch a future edit that accidentally
+    deletes one of these two instructions while touching the other."""
 
     def test_time_sensitivity_instruction_still_present(self):
         # The cross-turn exception below must not have replaced/weakened

@@ -133,9 +133,9 @@ def transcribe(audio) -> str:
 
     import numpy as np
 
-    # TEMP timing instrumentation (full-pipeline latency diagnosis, see task
-    # report): the STT stage was never measured by the earlier Groq-only
-    # diagnostic. total_start covers model-load-if-cold too (get_model()
+    # TEMP timing instrumentation (full-pipeline latency diagnosis): the STT
+    # stage was never measured by the earlier Groq-only diagnostic.
+    # total_start covers model-load-if-cold too (get_model()
     # below), since a cold load on the first real turn of a session is a
     # real, user-visible cost, not just the raw transcription work.
     total_start = time.perf_counter()

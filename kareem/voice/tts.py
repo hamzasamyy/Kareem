@@ -259,9 +259,9 @@ class Speaker:
 
         from kareem import config
 
-        # TEMP timing instrumentation (full-pipeline latency diagnosis, see
-        # task report): "synthesis" is the time from speak() being called to
-        # audio actually starting to play (sd.play() returns immediately —
+        # TEMP timing instrumentation (full-pipeline latency diagnosis):
+        # "synthesis" is the time from speak() being called to audio
+        # actually starting to play (sd.play() returns immediately —
         # it hands off to the audio backend and starts streaming — so this
         # is a real "time to first sound" measurement, not just a proxy).
         synth_start = time.perf_counter()
@@ -297,8 +297,8 @@ class Speaker:
         speed = getattr(config, "TTS_SPEED", 1.0) or 1.0
         syn_config = SynthesisConfig(length_scale=1.0 / speed)
 
-        # TEMP timing instrumentation (full-pipeline latency diagnosis, see
-        # task report): synthesize_wav is fully synchronous/CPU-bound — it
+        # TEMP timing instrumentation (full-pipeline latency diagnosis):
+        # synthesize_wav is fully synchronous/CPU-bound — it
         # generates the WHOLE clip before sd.play() can start, unlike a
         # true streaming TTS. That makes "synthesis" here the real
         # speak()-called-to-first-sound latency, and a real candidate
