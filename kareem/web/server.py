@@ -411,6 +411,54 @@ def create_app(agent, agent_lock: threading.Lock) -> FastAPI:
             "unclassified": unclassified,
         }
 
+    @app.get("/api/model")
+    async def model_status():
+        from kareem.brain import MODEL_OPTIONS
+
+        current_model = {
+            "hosted": config.HOSTED_MODEL,
+            "ollama": config.OLLAMA_MODEL,
+            "claude": config.CLAUDE_MODEL,
+        }.get(config.BRAIN, "?")
+        # Which option id matches the CURRENT (brain, model) pair, if any —
+        # lets the dropdown pre-select correctly even if config.py's exact
+        # model string differs slightly from an option's (e.g. CLAUDE_MODEL
+        # without the "-20251001" suffix wouldn't match claude-haiku's entry
+        # by model string, so fall back to matching by brain alone for the
+        # single-tier hosted/ollama entries).
+        current_id = None
+        for option in MODEL_OPTIONS:
+            if option["brain"] != config.BRAIN:
+                continue
+            if option["model"] is None or option["model"] == current_model:
+                current_id = option["id"]
+                break
+        return {
+            "brain": config.BRAIN,
+            "model": current_model,
+            "current_id": current_id,
+            "options": MODEL_OPTIONS,
+        }
+
+    @app.post("/api/model")
+    async def switch_model(body: dict):
+        from kareem.brain import MODEL_OPTIONS
+
+        option_id = (body or {}).get("id", "")
+        option = next((o for o in MODEL_OPTIONS if o["id"] == option_id), None)
+        if option is None:
+            return JSONResponse(
+                {"switched": False, "reason": f"Unknown model option '{option_id}'."},
+                status_code=400,
+            )
+        # Switching replaces agent.brain/agent.history[0] — same shared state
+        # a real turn touches, so it takes the same lock a turn would.
+        with agent_lock:
+            ok, detail = agent.switch_brain(option["brain"], option["model"])
+        if not ok:
+            return JSONResponse({"switched": False, "reason": detail}, status_code=400)
+        return {"switched": True, "id": option["id"], "brain": option["brain"], "model": option["model"]}
+
     @app.get("/api/calendar/status")
     async def calendar_status():
         return calendar_auth.get_status()

@@ -1006,15 +1006,54 @@ class ClaudeBrain:
         return _loop_safety_message(messages)
 
 
+# Selectable from the web UI's model switcher (kareem.agent.Agent.switch_brain,
+# wired via kareem/web/server.py's /api/model). Each entry's `model` is the
+# explicit model id to construct that brain with; None means "let that
+# brain's __init__ use its own config.py default" (config.HOSTED_MODEL /
+# config.OLLAMA_MODEL — hosted/Ollama aren't multi-tier the way Claude is,
+# so there's nothing to pick there). Keep in sync with kareem/config.py's
+# BRAIN/CLAUDE_MODEL comments and shared/models.md's current model IDs if a
+# new Claude tier is added.
+MODEL_OPTIONS = [
+    {"id": "claude-haiku", "brain": "claude", "model": "claude-haiku-4-5-20251001",
+     "label": "Claude Haiku 4.5 (fast, cheap)"},
+    {"id": "claude-sonnet", "brain": "claude", "model": "claude-sonnet-5",
+     "label": "Claude Sonnet 5 (balanced)"},
+    {"id": "claude-opus", "brain": "claude", "model": "claude-opus-5",
+     "label": "Claude Opus 5 (smartest, priciest)"},
+    {"id": "hosted", "brain": "hosted", "model": None,
+     "label": "Hosted (Groq, free)"},
+    {"id": "ollama", "brain": "ollama", "model": None,
+     "label": "Ollama (local, offline)"},
+]
+
+
+def build_brain(brain: str, model: str = None):
+    """Construct a brain instance for an explicit (brain, model) pair,
+    without reading or touching config.BRAIN/config.CLAUDE_MODEL/etc.
+
+    Used by kareem.agent.Agent.switch_brain for the web UI's live model
+    switcher: constructing IS the validation (missing API key, unreachable
+    Ollama, ...) — each brain's __init__ already raises a clear RuntimeError
+    for those, so the caller can try/except this and fall back to the
+    previous brain on failure instead of leaving Kareem unable to answer.
+    get_brain() below remains the config.py-driven entry point used at
+    startup; this is its explicit-argument twin."""
+    if brain == "ollama":
+        return OllamaBrain(model=model)
+    elif brain == "hosted":
+        return HostedBrain(model=model)
+    elif brain == "claude":
+        return ClaudeBrain(model=model)
+    else:
+        raise ValueError(f"Unknown brain '{brain}' — must be 'hosted', 'ollama', or 'claude'.")
+
+
 def get_brain():
     """Returns the active brain instance based on config.BRAIN."""
-    if config.BRAIN == "ollama":
-        return OllamaBrain()
-    elif config.BRAIN == "hosted":
-        return HostedBrain()
-    elif config.BRAIN == "claude":
-        return ClaudeBrain()
-    else:
+    try:
+        return build_brain(config.BRAIN)
+    except ValueError:
         raise ValueError(
             f"Unknown BRAIN '{config.BRAIN}' in kareem/config.py — "
             "must be 'hosted', 'ollama', or 'claude'."

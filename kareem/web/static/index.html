@@ -30,6 +30,7 @@
     <span class="statusline mono" id="statusline">standing by</span>
   </div>
   <div class="statusbar-right">
+    <select class="model-select mono" id="model-select" title="Switch which brain/model answers"></select>
     <span class="conn" id="conn" title="Connection to the Kareem engine">
       <span class="conn-dot"></span><span class="conn-label mono">LINK</span>
     </span>
@@ -169,6 +170,7 @@
       <h2 class="mono" id="tracker-title">TRACKERS</h2>
       <button class="history-close" id="tracker-close" type="button" aria-label="Close trackers">×</button>
     </header>
+    <div class="tracker-calendar-status" id="tracker-calendar-status"></div>
     <nav class="tracker-tabs" id="tracker-tabs" aria-label="Tracker category"></nav>
     <form class="tracker-form" id="tracker-form">
       <input id="tracker-text" type="text" required placeholder="Add an item…" aria-label="Tracker item">

@@ -30,6 +30,7 @@ const modeVoice = document.getElementById("mode-voice");
 const modeText  = document.getElementById("mode-text");
 const ring      = document.getElementById("ring");
 const statusline= document.getElementById("statusline");
+const modelSelect = document.getElementById("model-select");
 const conn      = document.getElementById("conn");
 const rail      = document.getElementById("rail");
 const railToggle= document.getElementById("rail-toggle");
@@ -46,6 +47,7 @@ const newSessionBtn = document.getElementById("new-session");
 const trackerToggle = document.getElementById("tracker-toggle");
 const trackerOverlay= document.getElementById("tracker-overlay");
 const trackerClose  = document.getElementById("tracker-close");
+const trackerCalendarStatus = document.getElementById("tracker-calendar-status");
 const trackerTabs   = document.getElementById("tracker-tabs");
 const trackerForm   = document.getElementById("tracker-form");
 const trackerText   = document.getElementById("tracker-text");
@@ -148,6 +150,55 @@ function showToast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
 }
+
+// ------------------------------------------------------------- model switcher
+//
+// Lets the user pick which brain answers (Claude/Hosted/Ollama) AND, for
+// Claude, which model tier (Haiku/Sonnet/Opus) — one dropdown in the top
+// status bar, backed by GET/POST /api/model (kareem/web/server.py ->
+// kareem.agent.Agent.switch_brain -> kareem.brain.build_brain). Switching
+// actually constructs the new brain server-side before committing (real
+// key-presence/reachability checks), so a bad choice reports an error and
+// the dropdown snaps back to whatever is still actually running.
+async function loadModelOptions() {
+  try {
+    const response = await fetch("/api/model");
+    const data = await response.json();
+    if (!response.ok) throw new Error("model status failed");
+    modelSelect.replaceChildren(
+      ...data.options.map((option) => Object.assign(document.createElement("option"), {
+        value: option.id, textContent: option.label, selected: option.id === data.current_id,
+      }))
+    );
+    // A running config (e.g. a hand-edited CLAUDE_MODEL) that matches no
+    // dropdown option: don't silently pretend one is selected.
+    if (!data.current_id) modelSelect.value = "";
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+modelSelect?.addEventListener("change", async () => {
+  const chosen = modelSelect.value;
+  modelSelect.disabled = true;
+  try {
+    const response = await fetch("/api/model", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: chosen }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.switched) throw new Error(data.reason || "switch failed");
+    showToast(`Switched to ${modelSelect.selectedOptions[0]?.textContent || chosen}.`);
+    logActivity(`model switched · ${data.brain} · ${data.model || ""}`.trim(), "dim", "dot");
+    await loadModelOptions();
+  } catch (error) {
+    showToast(`Couldn't switch model: ${error.message || "unknown error"}`);
+    await loadModelOptions();  // revert the dropdown to whatever is actually running
+  } finally {
+    modelSelect.disabled = false;
+  }
+});
 
 // Small inline icons for the activity feed (stroke = currentColor).
 const ICONS = {
@@ -428,6 +479,7 @@ function connect() {
       case "hello": {
         sttSource = msg.stt_source === "backend" ? "backend" : "browser";
         logActivity(`engine online · ${msg.brain} · ${msg.model}`, "dim", "dot");
+        loadModelOptions();
         if (msg.close_tab_quits) {
           // Simple mode: closing this tab shuts Kareem down. Say so quietly so
           // it isn't a surprise, without nagging on every reconnect.
@@ -1018,6 +1070,8 @@ async function openTrackers() {
   trackerOverlay.hidden = false;
   document.body.classList.add("tracker-open");
   await loadTrackers();
+  await loadCalendarStatus();
+  renderCalendarStatus();
   trackerText.focus();
 }
 
@@ -1025,6 +1079,7 @@ function closeTrackers(restoreFocus = true) {
   trackerOverlay.hidden = true;
   document.body.classList.remove("tracker-open");
   clearTrackerDeleteTimers();
+  stopCalendarPolling();
   if (restoreFocus) trackerToggle.focus();
 }
 
@@ -1371,17 +1426,15 @@ function renderGucStatus(data) {
   }
   const check = Object.assign(document.createElement("button"), { type: "button", className: "guc-check-now", textContent: data.in_progress ? "Checking…" : "Check now", disabled: Boolean(data.in_progress) });
   check.addEventListener("click", startGucCheck);
-  gucStatusBar.append(checked, logins, check, gucCalendarStatusEl());
+  gucStatusBar.append(checked, logins, check);
   gucGlobalActions.replaceChildren(gucBulkActions("all", true));
   renderGucSection();
 }
 
-// "Reconnect Calendar" — one-click control (Section 4): shows connected/
-// expired/error/not-configured status and, for anything other than
-// "not_configured", a button that deletes token.json and re-triggers the
-// OAuth consent flow. Kept separate from the GUC status polling above
-// (different backend, different failure modes) but rendered in the same
-// status bar since both are "is University data flowing" indicators.
+// "Reconnect Calendar" — one-click control (Section 4, moved to the
+// Trackers panel per follow-up request): shows connected/expired/error/
+// not-configured status and, for anything other than "not_configured", a
+// button that deletes token.json and re-triggers the OAuth consent flow.
 const CALENDAR_STATUS_LABEL = {
   connected: "CALENDAR CONNECTED",
   expired: "CALENDAR TOKEN EXPIRED",
@@ -1411,6 +1464,10 @@ function gucCalendarStatusEl() {
   return wrap;
 }
 
+function renderCalendarStatus() {
+  trackerCalendarStatus.replaceChildren(gucCalendarStatusEl());
+}
+
 async function loadCalendarStatus() {
   try {
     const response = await fetch("/api/calendar/status");
@@ -1434,7 +1491,7 @@ function pollCalendarStatus() {
   const startedAt = Date.now();
   calendarPollTimer = setInterval(async () => {
     const data = await loadCalendarStatus();
-    renderGucStatus(gucData || {});
+    renderCalendarStatus();
     // Interactive OAuth consent has no fixed deadline (the user finishes
     // it in their own browser tab), but stop polling after 5 minutes so a
     // closed/abandoned tab doesn't poll forever.
@@ -1453,7 +1510,7 @@ async function startCalendarReconnect() {
     }
     showToast("Reconnecting Google Calendar — finish the consent screen in your browser…");
     await loadCalendarStatus();
-    renderGucStatus(gucData || {});
+    renderCalendarStatus();
     pollCalendarStatus();
   } catch (error) {
     showToast("Calendar reconnect could not be started.");
@@ -1517,7 +1574,6 @@ async function openGuc() {
   closeMemory(false);
   layout.hidden = true;
   gucScreen.hidden = false;
-  await loadCalendarStatus();
   await loadGucStatus();
   gucBack.focus();
 }
@@ -1526,7 +1582,6 @@ function closeGuc(restoreFocus = true) {
   gucScreen.hidden = true;
   layout.hidden = false;
   stopGucPolling();
-  stopCalendarPolling();
   if (restoreFocus) universityToggle.focus();
 }
 

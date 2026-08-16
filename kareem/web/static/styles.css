@@ -129,6 +129,13 @@ body {
 }
 .ring.listening .ring-arc { animation: ring-breathe 0.9s ease-in-out infinite; }
 
+/* --- model switcher --- */
+.model-select { color: var(--ink-dim); background: var(--panel);
+  border: 1px solid var(--panel-edge); border-radius: 8px; padding: 6px 8px;
+  font-size: 10px; letter-spacing: 0.04em; cursor: pointer; max-width: 190px; }
+.model-select:hover { border-color: var(--accent-dim); color: var(--ink); }
+.model-select:disabled { opacity: .55; cursor: default; }
+
 /* --- connection dot --- */
 .conn { display: flex; align-items: center; gap: 6px; }
 .conn-dot {
@@ -692,6 +699,8 @@ body {
   .guc-review-row { grid-template-columns: 1fr; }
   .guc-review-actions { grid-row: auto; grid-column: auto; }
 }
+.tracker-calendar-status { display: flex; align-items: center; padding: 12px 18px 0; }
+.tracker-calendar-status:empty { display: none; }
 .tracker-tabs { display: flex; gap: 7px; padding: 12px 18px 0; overflow-x: auto; }
 .tracker-tabs button { white-space: nowrap; color: var(--ink-dim); background: var(--panel);
   border: 1px solid var(--panel-edge); border-radius: 8px; padding: 7px 11px;

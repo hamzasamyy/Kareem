@@ -151,6 +151,49 @@ class Agent:
         self.history = [self._system_message()]
         session_log.rotate_session()
 
+    def switch_brain(self, brain: str, model: str = None) -> tuple[bool, str]:
+        """Live-switch which brain answers future turns (the web UI's model
+        switcher — kareem/web/server.py's POST /api/model). Constructing the
+        new brain IS the validation: kareem.brain.build_brain actually tries
+        to build it (checks the API key, pings Ollama, ...), so a bad choice
+        never leaves Kareem brainless — on failure this returns (False,
+        reason) and the PREVIOUS brain keeps answering, unchanged.
+
+        Runtime-only: updates config.BRAIN/config.CLAUDE_MODEL/etc. so every
+        other place that reads them live (tool_routing's per-message
+        filtering, the system prompt below, the web UI's "hello" message)
+        picks up the switch immediately, but nothing is written back to
+        kareem/config.py — a restart reverts to that file's configured
+        default, same as every other runtime-only setting in this codebase.
+
+        Caller must hold agent_lock (this mutates self.brain/self.history,
+        same as a real turn) — see server.py's /api/model handler."""
+        from kareem import brain as brain_module
+        from kareem import config, safety
+
+        brain = (brain or "").strip().lower()
+        try:
+            new_brain = brain_module.build_brain(brain, model=model)
+        except Exception as e:
+            return False, str(e)
+
+        config.BRAIN = brain
+        if model:
+            if brain == "claude":
+                config.CLAUDE_MODEL = model
+            elif brain == "hosted":
+                config.HOSTED_MODEL = model
+            elif brain == "ollama":
+                config.OLLAMA_MODEL = model
+
+        self.brain = new_brain
+        # The system prompt (and tool-schema filtering, read live elsewhere)
+        # depend on config.BRAIN — refresh history[0] so a switch to/from
+        # "ollama" takes effect immediately instead of only on the next reset.
+        self.history[0] = self._system_message()
+        safety.log_action("switch_brain", f"{brain}" + (f" ({model})" if model else ""))
+        return True, "ok"
+
     def resume(self, session_id: str) -> bool:
         """Reload a past session's visible conversation and keep logging into it.
 
