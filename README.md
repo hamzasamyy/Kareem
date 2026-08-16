@@ -3,10 +3,12 @@
 ![Kareem's main screen — a dark HUD interface with a glowing cyan orb, ready to chat](docs/screenshots/hero.png)
 
 Kareem is a voice + text assistant that runs on your own PC. By default it
-thinks with a **free hosted cloud model** (fast — it runs on the provider's
-GPU, not your laptop). Two other brains are one config line away: a fully
-**offline local model** via Ollama (private, free, slower) and the **Claude
-API** (smartest, paid).
+thinks with **Claude Haiku 4.5** (Anthropic's API — smartest and most
+reliable at following instructions and picking tool parameters correctly,
+paid per use). Two other brains are one config line away — or one click in
+the web UI's model picker (top bar): a **free hosted cloud model** (fast —
+runs on the provider's GPU, not your laptop) and a fully **offline local
+model** via Ollama (private, free, slower).
 
 > **Requires Windows.** Desktop/app control, the background tray service, and
 > several voice components use Windows-specific APIs (PowerShell, Windows UI
@@ -63,6 +65,12 @@ The first calendar command opens your browser for one-time Google consent.
 Kareem then stores `token.json` locally and refreshes access silently. Both
 credential files are ignored by Git.
 
+If the connection ever expires or breaks (e.g. `token.json` gets deleted or
+Google revokes it), open the **Trackers** panel — a status pill at the top
+shows CONNECTED / EXPIRED / ERROR, with a one-click **Reconnect Calendar**
+button next to it that deletes the stale token and re-runs the consent flow.
+No need to dig through files by hand.
+
 ### GUC integration (optional, institution-specific)
 
 Kareem can automatically check CMS, the Student Portal, and Mail/OWA for new
@@ -96,8 +104,8 @@ whatever else you ask Kareem to track. Add, complete, or delete items from
 the panel, or just ask Kareem in chat ("add a to-do to…", "what's on my
 plate this week?").
 
-![The Trackers panel showing a populated custom list of real course deadlines and announcements](docs/screenshots/trackers.png)
-*A populated custom list — course deadlines and announcements Kareem pulled in automatically.*
+![The Trackers panel, showing the calendar connection status and Reconnect Calendar button above the tabs](docs/screenshots/trackers.png)
+*The calendar connection status lives right above the tabs — a one-click Reconnect Calendar button if it ever needs it.*
 
 ## Three ways to talk to it
 
@@ -108,7 +116,9 @@ plate this week?").
    a live feed of what Kareem is doing, Confirm/Cancel buttons for risky
    actions, and a mic button (browser voice — best in Chrome/Edge; replies to
    spoken messages are read aloud). Only this PC can reach it — it is never
-   exposed to the network.
+   exposed to the network. (The wake word only listens when no browser tab
+   already has the site open — if you're already looking at it, saying "hey
+   kareem" again does nothing, on purpose. The hotkey always works regardless.)
 2. **Type** in the console window (works exactly as before).
 3. **Voice in the console** — set `WAKE_OPENS_WEB = False` in
    `kareem/config.py` to make the wake word/hotkey talk out loud like it used
@@ -122,6 +132,29 @@ All three share ONE conversation — you can mix them freely.
 ![Close-up of the activity rail showing a tool call and its result](docs/screenshots/activity-rail.png)
 *Every tool call is traced live in that feed — here, `tracker_list` fetching a to-do.*
 
+### Switching brains from the website
+
+The dropdown in the top bar (next to the connection light) switches which
+brain answers — pick a Claude tier (Haiku 4.5 / Sonnet 5 / Opus 5) or jump
+straight to the free hosted brain or fully-local Ollama, without touching a
+config file or restarting Kareem. Picking an option actually builds that
+brain first (checks the API key, pings Ollama, …) before switching — a bad
+choice reports why and leaves the previous brain running, it never leaves
+Kareem unable to answer. This is runtime-only: a restart reverts to whatever
+`BRAIN` is set to in `kareem/config.py`, so treat the config file as the
+real default and the dropdown as a temporary override.
+
+![The model picker dropdown open, showing all five brain/model options](docs/screenshots/model-picker.png)
+*Every option actually switches the running brain — not just a label.*
+
+### Cost tracking (Claude brain only)
+
+Every Claude API call logs its approximate input/output token count and
+estimated cost to `kareem.log`, plus a running session and daily total — no
+setup needed, and it's the only brain that costs anything per use (Groq's
+hosted brain and Ollama are both free). This is an estimate for visibility,
+not a billing record; check your Anthropic console for exact usage.
+
 ---
 
 ## Part 1 — One-time setup
@@ -132,18 +165,22 @@ All three share ONE conversation — you can mix them freely.
 3. **Playwright's browser** (needed for browser control and the GUC
    integration) — run: `playwright install chromium`
 4. **ffmpeg** (voice only) — run `winget install ffmpeg`, then reopen the terminal.
-5. **A free Groq key**, for the default hosted brain (more on this in
-   [The fast free brain](#the-fast-free-brain-the-default) below) — sign up
-   at https://console.groq.com (free, no card), copy `.env.example` to `.env`
-   in this folder, and paste the key in as `HOSTED_API_KEY`.
+5. **A Claude API key**, for the default brain (more on this in
+   [Claude, the default brain](#claude-the-default-brain) below) — get one at
+   https://console.anthropic.com/settings/keys, copy `.env.example` to `.env`
+   in this folder, and paste the key in as `CLAUDE_API_KEY`. Costs money per
+   use (see [Cost tracking](#cost-tracking-claude-brain-only) above).
 6. Check everything: `run_kareem --check` (or `python main.py --check`) —
    fix anything marked `[FAIL]` using the hint it prints.
 
-Prefer everything to stay fully offline and private instead? Skip step 5 —
-see [Switching back to fully-local](#switching-back-to-fully-local-offline-private),
-no Groq key needed at all that way. (Even with the hosted brain, installing
-[Ollama](https://ollama.com) is worthwhile as a fallback: Kareem automatically
-uses it if the hosted brain is ever unreachable — entirely optional.)
+Prefer free instead of paying per use? Skip step 5 and switch `BRAIN` in
+`kareem/config.py` — `"hosted"` for a free cloud model (needs a free Groq
+key, see [The free hosted brain](#the-free-hosted-brain) below) or
+`"ollama"` for fully offline/private with no key at all, see
+[Switching to fully-local](#switching-to-fully-local-offline-private).
+(Either way, installing [Ollama](https://ollama.com) is worth doing anyway:
+Kareem automatically falls back to it if the hosted brain is ever
+unreachable — entirely optional, and irrelevant if you stay on Claude.)
 
 ### Kokoro voice (the default)
 
@@ -265,8 +302,12 @@ page refresh apart from an actual close, so refreshing doesn't quit it.)
 
 Open `kareem/config.py` in Notepad — every setting is explained in comments:
 
-- `BRAIN` — `"hosted"` (free cloud, default), `"ollama"` (free, local,
-  offline), or `"claude"` (paid API)
+- `BRAIN` — `"claude"` (Anthropic API, default, paid), `"hosted"` (free
+  cloud), or `"ollama"` (free, local, offline). Switchable live from the
+  web UI's model picker too — see [Switching brains from the
+  website](#switching-brains-from-the-website) above.
+- `CLAUDE_MODEL` — which Claude tier: Haiku 4.5 (default, fast/cheap),
+  Sonnet 5 (balanced), or Opus 5 (smartest, priciest)
 - `OLLAMA_MODEL` — which local model to use
 - `VOICE_ENABLED` — master switch for all voice features
 - `TTS_ENGINE`, `TTS_VOICE`, `TTS_SPEED` — speaking voice and speed
@@ -279,13 +320,41 @@ What Kareem treats as "risky" (= asks before doing) is listed in
 
 ---
 
-## The fast free brain (the default)
+## Claude, the default brain
 
-The default brain is a free hosted model on **Groq**
-(`openai/gpt-oss-120b`) — Groq's chips answer with sub-second first-token
-latency, so replies start almost instantly and Kareem begins **speaking the
-first sentence while the rest is still being written** (streaming; turn off
-with `STREAMING = False` in config). One-time setup:
+Kareem's default brain is **Claude Haiku 4.5**, over the Anthropic API —
+it follows instructions and picks tool parameters far more consistently
+than a free model, at the cost of paying per use. One-time setup:
+
+1. Get an API key at **https://console.anthropic.com/settings/keys**.
+2. Copy `.env.example` to a file named `.env` in this folder (if it isn't
+   there already) and paste your key:
+   ```
+   CLAUDE_API_KEY=sk-ant-...your-key...
+   ```
+3. Run `run_kareem --check` — it should say the key was found.
+
+**Model tier:** `CLAUDE_MODEL` in `kareem/config.py` picks Haiku 4.5
+(default — fast and cheap), Sonnet 5 (balanced), or Opus 5 (smartest,
+priciest) — or switch tiers live from the web UI's model picker without
+touching the file at all, see [Switching brains from the
+website](#switching-brains-from-the-website) above.
+
+**Cost:** see [Cost tracking](#cost-tracking-claude-brain-only) above —
+Kareem logs an approximate per-call cost and running totals so usage isn't
+a surprise.
+
+Prefer free instead? Two alternatives, either one a config line away (or
+a click in the model picker):
+
+### The free hosted brain
+
+A free hosted model on **Groq** (`openai/gpt-oss-120b`) — Groq's chips
+answer with sub-second first-token latency, so replies start almost
+instantly and Kareem begins **speaking the first sentence while the rest is
+still being written** (streaming; turn off with `STREAMING = False` in
+config). Reliable, but has a real capability ceiling below Claude's —
+expect occasional wrong tool calls or misread requests. One-time setup:
 
 1. Sign up at **https://console.groq.com** (free, no credit card) and create
    an API key.
@@ -294,7 +363,8 @@ with `STREAMING = False` in config). One-time setup:
    ```
    HOSTED_API_KEY=gsk_...your-key...
    ```
-3. Run `run_kareem --check` — it should say the key was found.
+3. In `kareem/config.py`, set `BRAIN = "hosted"`.
+4. Run `run_kareem --check` — it should say the key was found.
 
 **How the model id works:** in `kareem/config.py`, `HOSTED_BASE_URL` picks
 the provider and `HOSTED_MODEL` picks the model on that provider. The config
@@ -307,15 +377,24 @@ daily token caps — plenty for personal use. If you ever hit them, Kareem
 waits and retries automatically; if the endpoint stays unreachable and
 Ollama is running locally, it answers with the local model instead and
 prints a note saying so (`HOSTED_FALLBACK_TO_OLLAMA` in config turns this
-off).
+off). This automatic fallback is specific to the hosted brain — Claude has
+no equivalent fallback.
+
+Prefer fully local instead? See [Switching to fully-local (offline,
+private)](#switching-to-fully-local-offline-private) below — no key needed
+at all, nothing leaves your PC.
 
 **Privacy note:** a few things Kareem does leave your PC, depending on what
 you use:
-- **The hosted brain** (default): the *text* of your conversation is sent to
-  the provider's servers (Groq, or whichever `HOSTED_BASE_URL` you configure).
+- **The active brain**: the *text* of your conversation is sent to that
+  brain's provider — Anthropic (Claude, the default), or Groq/whichever
+  `HOSTED_BASE_URL` you configure if you switch to the hosted brain. The
+  fully-local Ollama brain sends nothing anywhere.
 - **The vision-click fallback** (`kareem/tools/vision.py`, last resort for
-  clicking something on screen): a screenshot of your primary monitor is sent
-  to Groq's vision model.
+  clicking something on screen): a screenshot of your primary monitor is
+  sent to Groq's vision model, regardless of which brain is active — a
+  fixed vision-capable model is needed for this to work at all, so it
+  always uses Groq even if you're on Claude or Ollama for everything else.
 - **Web search** (`web_search`/`fetch_page`): your query, and any page URL
   you ask Kareem to fetch, goes to DuckDuckGo / that page's own server.
 - **Google Calendar** (if connected): event details you create/read go to
@@ -338,8 +417,9 @@ stored, where, and how to clear it:
 | Durable remembered facts ("remember that…") | `data/memory.json` | Delete facts from the Memory panel, or delete the file |
 | To-dos/reminders/tracker items | `data/trackers.json` | Delete items from the Trackers panel, or delete the file |
 | GUC check history/login state (only if GUC is configured) | `data/guc_check_history.json`, `data/guc_login_state.json` | Delete the files |
+| Approximate Claude token usage/cost log (only if `BRAIN = "claude"`) | `data/claude_usage.json` | Delete the file |
 | Every action Kareem takes (for debugging) | `kareem.log` | Delete the file |
-| Google Calendar authorization | `token.json` | Delete the file — Kareem asks you to reconnect next time it's needed |
+| Google Calendar authorization | `token.json` | Use the Trackers panel's **Reconnect Calendar** button, or delete the file by hand — either way Kareem re-runs consent next time it's needed |
 
 Kareem doesn't automatically expire or delete any of this — it's yours to
 manage. Any of these files/folders are recreated automatically the next
@@ -347,7 +427,7 @@ time they're needed, so deleting them is always safe.
 
 ---
 
-## Switching back to fully-local (offline, private)
+## Switching to fully-local (offline, private)
 
 1. Install [Ollama](https://ollama.com), then run:
    ```
@@ -362,23 +442,10 @@ time they're needed, so deleting them is always safe.
    ```
 
 That's the whole switch — same tools, same safety gate, no internet needed,
-nothing leaves your PC. Change it back to `"hosted"` anytime.
-
----
-
-## Switching to Claude (optional, paid)
-
-1. Copy `.env.example` to a new file named `.env` in this folder.
-2. Get an API key from https://console.anthropic.com/settings/keys and put it
-   in `.env`: `CLAUDE_API_KEY=sk-ant-…`
-3. In `kareem/config.py` set `BRAIN = "claude"`.
-4. Run `run_kareem` (or `python main.py`) as usual.
-
-Everything else — tools, safety confirmations, voice — works identically.
-Switch back anytime with `BRAIN = "hosted"` (the default, also free) or
-`BRAIN = "ollama"` (fully offline, also free). Claude is the only one of the
-three that bills per use, through your Anthropic account. Your key lives
-only in `.env`, which is never committed or shared.
+nothing leaves your PC. Ollama's tool-calling reliability is a step below
+Claude's, and it's noticeably slower on CPU. Change it back to `"claude"`
+(the default) anytime, or to `"hosted"` for the free cloud option — see
+[Claude, the default brain](#claude-the-default-brain) above.
 
 ---
 
@@ -388,12 +455,13 @@ only in `.env`, which is never committed or shared.
 Kareem/
   main.py                # entrypoint — run this
   requirements.txt       # Python packages
-  .env.example           # copy to .env and add a key (Groq by default,
-                          # or Anthropic's if you switch to the Claude brain)
+  .env.example           # copy to .env and add a key (Anthropic's by
+                          # default, or Groq's if you switch to the hosted brain)
   kareem.log             # every action Kareem takes is recorded here
   kareem/
     config.py            # <-- the file you edit to change settings
-    brain.py             # Ollama / Claude connection + tool-calling loop
+    brain.py             # Claude / hosted / Ollama connections + tool-calling loop
+    cost.py              # approximate Claude token usage/cost logging
     agent.py             # chat loop + tool dispatch
     safety.py            # the confirmation gate + action log
     voice/               # tts, stt, wake word, mic recording, controller
@@ -403,6 +471,36 @@ Kareem/
       static/            # the page itself — plain index.html / styles.css /
                          # app.js, editable by hand, no build tools
 ```
+
+---
+
+## Known limitations
+
+- **No authentication on voice or hotkey input.** Anyone within earshot of
+  the mic, or with access to the keyboard, can talk to Kareem and trigger
+  anything it can do — there's no identity check, no PIN, no wake-word
+  voice matching. The confirmation gate stops a destructive action from
+  happening *silently*, but it doesn't stop a stranger from asking in the
+  first place. Treat Kareem like any other always-listening device on your
+  desk: it's as trusted as the room it's sitting in.
+- **Claude can occasionally report success without actually acting.**
+  Observed specifically with marking to-do items complete
+  (`tracker_complete`): Claude sometimes replies "done, marked as
+  complete" without the underlying item actually changing status — verified
+  by checking the tracker data directly, not just trusting the reply. This
+  is model behavior, not something Kareem's code can fully prevent; if an
+  action matters, check the actual list/calendar/tracker rather than taking
+  the reply at face value.
+- **`close_app` can't always tell an app closed within its own wait
+  window.** It genuinely verifies the process exited rather than guessing,
+  but some apps (modern/UWP-style ones especially) can take longer than the
+  wait window to fully terminate — an honest "didn't actually close" report
+  in that case doesn't necessarily mean the close request failed, just that
+  it hadn't finished yet.
+- **The vision-click fallback is inherently the least reliable layer.** It
+  depends on a preview-tier vision model and pixel-estimated clicks, not
+  confirmed UI elements — expect occasional misses, by design of the
+  approach, not a bug to report.
 
 ---
 
@@ -416,7 +514,14 @@ Kareem/
   folder) instead of a bare `python main.py` — it always finds the right
   one. `run_kareem --check` gives the full diagnostic.
 
-**Using the default hosted brain (Groq):**
+**Using the default Claude brain:**
+- **"No CLAUDE_API_KEY found"** — copy `.env.example` to `.env` and paste
+  in a key from https://console.anthropic.com/settings/keys.
+- **Want to check current usage/cost** — see `kareem.log` for a running
+  session/day total (search for `claude_usage`), or your Anthropic console
+  for exact billing.
+
+**If you've switched to the hosted brain (`BRAIN = "hosted"`):**
 - **"No HOSTED_API_KEY in .env"** — copy `.env.example` to `.env` and paste
   in a key from https://console.groq.com (free, no card).
 - **Kareem says the hosted brain is unavailable and falls back** — Groq is
