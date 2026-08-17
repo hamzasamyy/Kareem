@@ -196,6 +196,19 @@ def run_check():
             print("       Fix: install Ollama from https://ollama.com and make sure it's running.")
             all_ok = False
 
+    # --- Claude API key (only matters if BRAIN = "claude") ---
+    if config.BRAIN == "claude":
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        if os.getenv("CLAUDE_API_KEY"):
+            print(f"[OK]   CLAUDE_API_KEY found in .env (model: {config.CLAUDE_MODEL})")
+        else:
+            print(f"[FAIL] No CLAUDE_API_KEY in .env (needed for CLAUDE_MODEL {config.CLAUDE_MODEL}).")
+            print("       Fix: copy .env.example to .env and paste in your Anthropic API key "
+                  "from https://console.anthropic.com/settings/keys")
+            all_ok = False
+
     print("=" * 40)
     if all_ok:
         print("Everything looks good. Run 'run_kareem' (or python main.py) to start Kareem.")
