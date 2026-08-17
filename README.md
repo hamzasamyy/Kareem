@@ -182,10 +182,22 @@ key, see [The free hosted brain](#the-free-hosted-brain) below) or
 Kareem automatically falls back to it if the hosted brain is ever
 unreachable — entirely optional, and irrelevant if you stay on Claude.)
 
-### Kokoro voice (the default)
+### Piper voice (the default)
 
-Kokoro is Kareem's natural, offline speaking voice. Install its two Python
-packages (the normal full install command in step 4 above also does this):
+Piper is Kareem's default speaking voice — fast and fully offline. Install
+a voice for it by running this once in this folder:
+```
+python -m piper.download_voices en_US-lessac-medium --data-dir kareem/voice/models
+```
+If Piper can't start, Kareem automatically falls back to the basic Windows
+voice and tells you why instead of crashing.
+
+### Kokoro voice (alternative, more expressive)
+
+Kokoro is a more naturally expressive offline voice, at some cost to speed
+(the comments above `TTS_ENGINE` in `kareem/config.py` have the measured
+numbers). Install its two Python packages (the normal full install command
+in step 4 above also does this):
 ```
 pip install kokoro-onnx soundfile
 ```
@@ -195,27 +207,20 @@ Download these two files:
 - https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
 - https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
 
-Create the folder `kareem/voice/models/kokoro/` and put both files inside it.
-To choose a different voice, change `TTS_VOICE` in `kareem/config.py`; the
-comments there list a few British and American choices. If Kokoro cannot
-start, Kareem automatically tries Piper and then the basic Windows voice.
-
-### Piper voice (fallback option)
-
-Piper remains a faster offline fallback. To install one of its voices, run
-this once in this folder:
-```
-python -m piper.download_voices en_US-lessac-medium --data-dir kareem/voice/models
-```
-Restart Kareem and set `TTS_ENGINE = "piper"` in `kareem/config.py` if you
-want to use it instead of Kokoro.
+Create the folder `kareem/voice/models/kokoro/`, put both files inside it,
+then set `TTS_ENGINE = "kokoro"` in `kareem/config.py`. To choose a
+different voice, change `TTS_VOICE`; the comments there list a few British
+and American choices. If Kokoro can't start, Kareem falls back down the
+chain to Piper, then the basic Windows voice.
 
 ### Wake word ("hey kareem")
 
-The wake-word model is a custom-trained `hey_kareem.onnx` (openWakeWord),
-kept out of git like the other voice model binaries above — a fresh clone
-needs it placed at `kareem/voice/models/hey_kareem.onnx`. Regenerate it any
-time with:
+The wake-word model is a custom-trained `hey_kareem.onnx` (openWakeWord).
+Unlike the other voice model binaries above, this one IS committed to the
+repo (a deliberate `.gitignore` exception — without it, "hey kareem"
+wouldn't work out of the box), so a fresh clone already has it; nothing to
+place by hand. Regenerate it any time (e.g. to retrain with a different
+voice) with:
 ```
 python train_kareem.py
 ```
